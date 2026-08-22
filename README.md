@@ -23,6 +23,10 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 
 Problem Management and Change Management are intentionally out of scope for v1 — this project builds one ITIL process completely before expanding to others.
 
+## Training Simulator
+
+`/training` is a practice mode, separate from the real ticket queue: a "call" comes in — written the way a real caller actually talks, including some vagueness on purpose — you pick your first diagnostic step from a set of multiple-choice options, and immediately see whether that choice was right (with an explanation either way) followed by how the issue was actually resolved. Attempts are tracked per user (retrying is expected — the goal is getting it right eventually, not on the first try), so `/training` also shows a running score. See `prisma/schema.prisma` (`TrainingScenario` / `TrainingChoice` / `TrainingAttempt`) and `src/data/training-scenarios.ts` for the content.
+
 ## Tech Stack
 
 - **Framework:** Next.js (App Router) + React Server Components
@@ -36,14 +40,17 @@ Problem Management and Change Management are intentionally out of scope for v1 �
 ```
 app/
   page.tsx                  # Home page — personal "my work" dashboard, role-scoped
-  layout.tsx                 # Root HTML layout, includes the role-switcher + search nav header
+  layout.tsx                 # Root HTML layout, includes the role-switcher + nav header
   incidents/
     page.tsx                  # Search/browse every incident visible to your role, with filters
     new/page.tsx               # "Log a new incident" form
     [id]/page.tsx               # Ticket detail page — SLA panel, role-gated action forms, activity timeline
+  training/
+    page.tsx                   # Training Simulator home — every scenario + your score
+    [id]/page.tsx                # One "call": transcript, multiple-choice question, then the reveal
 prisma/
-  schema.prisma              # Database schema: User, Incident, IncidentActivity models + ITIL enums
-  seed.ts                     # Demo data: one user per role, sample incidents
+  schema.prisma              # Database schema: User, Incident, IncidentActivity, Training* models + ITIL enums
+  seed.ts                     # Demo data: one user per role, sample incidents, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
   lib/
@@ -54,9 +61,12 @@ src/
     incidents.ts                 # Server Action: create a new incident (derives priority + SLA dates)
     incident-workflow.ts          # Server Actions for the rest of the lifecycle: take, reassign,
                                     # escalate, hold/resume, resolve, close, comment
+    training.ts                   # Server Action: record a training attempt
   components/
     role-switcher.tsx            # Client Component — the "Viewing as" dropdown in the header
     incident-list.tsx             # Shared ticket-list rendering (used by the dashboard and search page)
+  data/
+    training-scenarios.ts        # Training Simulator content — call transcripts, choices, resolutions
   types/itil.ts                  # ITIL business rules: impact/urgency -> priority matrix, SLA targets,
                                    # escalation-tier logic, role/label lookups
 ```

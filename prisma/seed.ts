@@ -2,6 +2,7 @@ import { PrismaClient, Impact, Urgency, IncidentCategory, ActivityType } from ".
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { derivePriority, calculateSlaDueDates } from "../src/types/itil";
+import { TRAINING_SCENARIOS } from "../src/data/training-scenarios";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -112,9 +113,32 @@ async function main() {
     });
   }
 
+  for (const scenario of TRAINING_SCENARIOS) {
+    await prisma.trainingScenario.create({
+      data: {
+        title: scenario.title,
+        category: scenario.category,
+        difficulty: scenario.difficulty,
+        callerOpening: scenario.callerOpening,
+        callerFollowUp: scenario.callerFollowUp,
+        question: scenario.question,
+        resolutionSteps: scenario.resolutionSteps,
+        choices: {
+          create: scenario.choices.map((choice, index) => ({
+            text: choice.text,
+            isCorrect: choice.isCorrect,
+            explanation: choice.explanation,
+            order: index,
+          })),
+        },
+      },
+    });
+  }
+
   console.log("Seed complete:", {
     users: 5,
     incidents: samples.length,
+    trainingScenarios: TRAINING_SCENARIOS.length,
   });
 }
 

@@ -409,6 +409,68 @@ all three return `200`, with the home page rendering real data from the
 production Postgres database (a seeded incident title appearing in the
 response), not a stale or cached build.
 
+## Stage 19 — Training Simulator: "calls" to practice on
+
+A different kind of feature than everything before it: not another piece
+of the Incident Management lifecycle, but a practice mode requested
+directly — the user wanted the app to actually teach IT troubleshooting,
+not just track tickets. The idea: a simulated support call comes in, you
+pick your first diagnostic step from a multiple-choice question, get
+immediate feedback on that specific choice, then see the real resolution
+regardless of whether you got it right.
+
+**Data model** (`prisma/schema.prisma`): `TrainingScenario` /
+`TrainingChoice` / `TrainingAttempt`, deliberately kept separate from
+`Incident` rather than reusing it — a practice attempt at a canned
+scenario has nothing to do with real ticket data, and folding them
+together would mean every real incident query needs to start filtering
+out fake training rows. `TrainingAttempt` is append-only by design (never
+updated or deleted): a trainee retrying a scenario after getting it wrong
+is the whole point of a training tool, so the schema keeps every attempt
+rather than overwriting a single "current answer" field. This is what
+lets `/training` show "resolved" based on your *most recent* attempt
+while still being honest that an earlier one was wrong.
+
+**Content** (`src/data/training-scenarios.ts`): 6 scenarios (`prisma
+db seed`-loaded) spanning Network, Software, Hardware, Access, and
+Account categories at Beginner through Advanced difficulty, following
+the same "content lives in a plain data file, not the database schema or
+the seed script" pattern already established for the ITIL policy in
+`src/types/itil.ts`. Each scenario's question is deliberately about the
+*first diagnostic step*, not "what's broken" — the skill being taught is
+triage process. The wrong answers were written to be plausible mistakes
+a real trainee might actually make, not obviously-silly distractors:
+jumping straight to a disruptive fix (resetting a shared switch, ordering
+replacement hardware) before confirming that's even the problem,
+escalating before doing any basic troubleshooting, or — in the account
+lockout scenario — skipping identity verification because the caller
+already gave a username. That last one is a genuine security-awareness
+lesson (identity verification before any account action, no exceptions
+for a caller who "sounds" legitimate), not just a technical one.
+
+**Flow**: `app/training/page.tsx` lists every scenario with a live score
+("resolved N of M calls") and a per-scenario status badge based on the
+user's latest attempt. `app/training/[id]/page.tsx` renders the call as
+a transcript (both caller lines shown together — a deliberate choice over
+building a full branching dialogue engine, see the comment in the data
+file), then the multiple-choice form, then — after
+`src/actions/training.ts`'s `submitTrainingAnswer` records the attempt —
+redirects back to the same URL with `?answered=<choiceId>` so the page
+re-renders showing that specific choice's explanation plus the scenario's
+real resolution. Using a query param for the reveal state (rather than
+component state) keeps this feature server-rendered with zero client-side
+JavaScript, consistent with the rest of the app.
+
+Verified end-to-end against the live Postgres database: confirmed all 6
+scenarios list correctly, fetched a scenario page in all three render
+states (unanswered form, wrong-answer reveal, correct-answer reveal) and
+checked the right content appeared in each, then recorded a real wrong
+attempt followed by a real correct attempt for the same user/scenario and
+confirmed the list page's score and badge updated correctly at each step
+(0/6 with an amber "Try again" badge, then 1/6 with a green "Resolved"
+badge) — proving the "status reflects your latest attempt" design
+actually works, not just that the schema supports it.
+
 ---
 
 *(Next stages get appended below as they're built.)*
