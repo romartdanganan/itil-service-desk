@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
-import { PRIORITY_LABELS, ROLE_LABELS } from "@/src/types/itil";
+import { ROLE_LABELS } from "@/src/types/itil";
 import { Role } from "@/app/generated/prisma/client";
-import type { Incident, User } from "@/app/generated/prisma/client";
+import { IncidentGroup, PageHeader, isOpenStatus } from "@/src/components/incident-list";
 
 // Without this, Next.js sees no dynamic input (no cookies, no searchParams)
 // on this page and assumes it's safe to pre-render once at build time and
@@ -12,92 +11,7 @@ import type { Incident, User } from "@/app/generated/prisma/client";
 // must be re-rendered on every request instead.
 export const dynamic = "force-dynamic";
 
-type IncidentRow = Incident & { assignee: User | null; requester: User };
-
 const OPEN_STATUSES = ["NEW", "IN_PROGRESS", "ON_HOLD"] as const;
-
-function isOpenStatus(status: Incident["status"]): boolean {
-  return status !== "RESOLVED" && status !== "CLOSED";
-}
-
-function isOverdue(incident: Incident): boolean {
-  return isOpenStatus(incident.status) && new Date() > incident.slaResolveDueAt;
-}
-
-function IncidentListItem({ incident }: { incident: IncidentRow }) {
-  return (
-    <li>
-      <Link
-        href={`/incidents/${incident.id}`}
-        className="block rounded-lg border border-black/10 bg-white p-4 transition-colors hover:border-black/20 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
-      >
-        <div className="flex items-center justify-between text-xs font-medium text-zinc-500">
-          <span>{incident.ticketNumber}</span>
-          <div className="flex gap-2">
-            {isOverdue(incident) && (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800 dark:bg-red-950 dark:text-red-300">
-                SLA overdue
-              </span>
-            )}
-            <span>{PRIORITY_LABELS[incident.priority]}</span>
-          </div>
-        </div>
-        <p className="mt-1 font-medium text-black dark:text-zinc-50">{incident.title}</p>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Status: {incident.status.replace("_", " ")} · Reported by{" "}
-          {incident.requester.name} · Assigned to{" "}
-          {incident.assignee?.name ?? "Unassigned"}
-        </p>
-      </Link>
-    </li>
-  );
-}
-
-function IncidentGroup({
-  title,
-  emptyMessage,
-  incidents,
-}: {
-  title: string;
-  emptyMessage: string;
-  incidents: IncidentRow[];
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
-        {title} ({incidents.length})
-      </h2>
-      {incidents.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{emptyMessage}</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {incidents.map((incident) => (
-            <IncidentListItem key={incident.id} incident={incident} />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function PageHeader({ subtitle }: { subtitle: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-          ITIL Service Desk
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{subtitle}</p>
-      </div>
-      <Link
-        href="/incidents/new"
-        className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
-      >
-        Log New Incident
-      </Link>
-    </div>
-  );
-}
 
 // This component has no "use client" directive, which makes it a React
 // Server Component — it runs only on the server, never ships its code to
@@ -113,6 +27,9 @@ function PageHeader({ subtitle }: { subtitle: string }) {
 // `currentTier` (see prisma/schema.prisma) from a database column into
 // something that actually shapes the UI: it's the WHERE clause that keeps
 // an L2 agent from seeing L1's unclaimed tickets.
+//
+// This is the personal "my work" dashboard. For browsing/searching every
+// ticket visible to you regardless of assignment, see /incidents.
 export default async function Home() {
   const activeUser = await getActiveUser();
 
@@ -124,7 +41,10 @@ export default async function Home() {
     return (
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
-          <PageHeader subtitle="Pick a user from &quot;Viewing as&quot; above to see a role-specific view. Showing every ticket in the meantime." />
+          <PageHeader
+            title="ITIL Service Desk"
+            subtitle="Pick a user from &quot;Viewing as&quot; above to see a role-specific view. Showing every ticket in the meantime."
+          />
           <IncidentGroup
             title="All incidents"
             emptyMessage="No incidents logged yet."
@@ -144,7 +64,7 @@ export default async function Home() {
     return (
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
-          <PageHeader subtitle={`Tickets you've reported, ${activeUser.name}.`} />
+          <PageHeader title="ITIL Service Desk" subtitle={`Tickets you've reported, ${activeUser.name}.`} />
           <IncidentGroup
             title="Open"
             emptyMessage="Nothing open right now."
@@ -168,7 +88,7 @@ export default async function Home() {
     return (
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
-          <PageHeader subtitle="Full visibility across every support tier." />
+          <PageHeader title="ITIL Service Desk" subtitle="Full visibility across every support tier." />
           <IncidentGroup
             title="Open incidents"
             emptyMessage="Nothing open — every ticket is resolved or closed."
@@ -203,7 +123,10 @@ export default async function Home() {
   return (
     <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex w-full max-w-3xl flex-col gap-8 py-16 px-6">
-        <PageHeader subtitle={`Working as ${ROLE_LABELS[activeUser.role]} — ${activeUser.name}.`} />
+        <PageHeader
+          title="ITIL Service Desk"
+          subtitle={`Working as ${ROLE_LABELS[activeUser.role]} — ${activeUser.name}.`}
+        />
         <IncidentGroup
           title="My tickets"
           emptyMessage="Nothing assigned to you right now."

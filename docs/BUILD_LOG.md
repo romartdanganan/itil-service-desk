@@ -198,7 +198,7 @@ commit `95c3fe8` before this change, so it's still recoverable from that
 commit's history on the remote unless that history is separately
 rewritten.
 
-## Stage 10 — Split dashboards into open vs. resolved/closed
+## Stage 11 — Split dashboards into open vs. resolved/closed
 
 As tickets accumulate, a flat list mixing every open ticket with every
 resolved/closed one forever stops being useful — a manager or a customer
@@ -209,6 +209,57 @@ and **Resolved & closed**. Refactored the open/closed check into a single
 `isOpenStatus()` helper in `app/page.tsx` — it's now used by the SLA
 overdue badge and by both dashboard splits, instead of three slightly
 different ways of asking the same question.
+
+## Stage 12 — Fully purging the talking-points doc from history
+
+Stage 10 stopped tracking `docs/private/PROJECT_SUMMARY.md` going
+forward, but it had already been pushed once (commit `95c3fe8`) and was
+still recoverable from that commit in the remote's history. Asked
+explicitly whether to leave that as-is or fully scrub it, the answer was
+to scrub it: rewrote every commit's history with `git filter-branch`
+(`git-filter-repo` wasn't installed, so the older built-in tool was used
+instead) to strip the file out of every commit that ever contained it,
+then force-pushed the rewritten `main` to origin. Commits from that point
+onward got new hashes as a result (`95c3fe8`→`f10a312`,
+`2162ef7`→`e89d742`, `a20c443`→`f83b594`); earlier commits kept their
+original hashes since their content never changed. A local-only backup
+of the pre-rewrite history was kept on branch `backup-before-history-rewrite`
+in case anything needed to be recovered, and was never pushed.
+
+**Worth knowing if this comes up again:** rewriting published history is
+disruptive by nature — it changes commit hashes, and anyone who already
+cloned/fetched the old history keeps a copy until they re-sync. This was
+a deliberate, explicitly-approved exception for a small solo-authored
+repo with no other collaborators yet, not a default way to handle
+"remove a file" requests.
+
+## Stage 13 — Search and filter across incidents
+
+Added `app/incidents/page.tsx`: a dedicated browse/search page, separate
+from the personal "my work" dashboard on the home page. It answers a
+different question — "does a ticket matching X exist at all" — with a
+plain `<form method="GET">` (text search across ticket number/title/
+description, plus status/priority/category dropdowns) that filters by
+reloading the page with query-string parameters, which the Server
+Component reads directly via `searchParams`. No client-side JavaScript
+needed for this at all.
+
+The search results respect the exact same role-visibility rule as the
+dashboard (customer → own reports only; agent → claimed tickets + their
+tier's queue; manager → everything) — expressed once as a Prisma `WHERE`
+clause and `AND`-ed together with whatever search/filter values were
+given, so an agent can't use search to see tickets outside their normal
+visibility.
+
+Extracted the ticket-list rendering (`IncidentListItem`, `IncidentGroup`,
+`PageHeader`, `isOpenStatus`/`isOverdue`) out of `app/page.tsx` into
+`src/components/incident-list.tsx` so the dashboard and the new search
+page render tickets identically instead of maintaining two copies.
+
+Verified by fetching `/incidents` with different role cookies and query
+strings and confirming result counts matched the actual database state
+(e.g. `?q=printer` narrowing 4 tickets down to exactly 1; an L1 agent's
+unfiltered search only surfacing the 1 ticket they're allowed to see).
 
 ---
 

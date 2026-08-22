@@ -44,6 +44,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             ITIL Service Desk
           </Link>
           <div className="flex items-center gap-4">
+            <Link
+              href="/incidents"
+              className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+            >
+              Search
+            </Link>
             {activeUser && (
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
                 {ROLE_LABELS[activeUser.role]}

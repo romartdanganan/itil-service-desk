@@ -15,6 +15,7 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **SLA (Service Level Agreement) tracking** — each priority level has a target response time and resolution time; every incident stores its own SLA due dates, calculated at creation.
 - **Support Tiers (L1 / L2 / L3) & Escalation** — incidents are assigned to Level 1 (service desk), Level 2 (technical support), or Level 3 (specialist/engineering) agents. Escalating a ticket always moves it UP a tier (never back to the customer) and hands it to that tier's queue rather than one named person — see `getNextTier` in `src/types/itil.ts`.
 - **Role-scoped dashboards** — the home page is a different view depending on who's "logged in": a customer sees only the tickets they reported, an agent sees their own claimed tickets plus their tier's unclaimed queue, and a manager sees everything. The `currentTier` field on each incident is what makes an unassigned, escalated ticket still routable to the right tier's queue.
+- **Search & filter** — `/incidents` lets you search by text (ticket number, title, description) and filter by status/priority/category, still bounded by the same role visibility as the dashboard — an L1 agent searching can't surface a ticket they have no reason to see.
 - **Resolve vs. Close as separate steps** — Resolving records the fix; Closing is a separate confirmation (by the requester or a manager) that the fix actually held. A `RESOLVED` ticket can't be closed by just anyone, and the SLA-breach flag is calculated and permanently recorded the moment a ticket is resolved.
 - **Audit trail** — every status change, assignment, escalation, resolution, closure, and comment on an incident is recorded as an `IncidentActivity`, so a ticket's full history is visible on its detail page.
 
@@ -32,11 +33,12 @@ Problem Management and Change Management are intentionally out of scope for v1 �
 
 ```
 app/
-  page.tsx                  # Home page — ticket list, Server Component queries incidents directly
-  layout.tsx                 # Root HTML layout, includes the role-switcher header
+  page.tsx                  # Home page — personal "my work" dashboard, role-scoped
+  layout.tsx                 # Root HTML layout, includes the role-switcher + search nav header
   incidents/
-    new/page.tsx              # "Log a new incident" form
-    [id]/page.tsx              # Ticket detail page — SLA panel, role-gated action forms, activity timeline
+    page.tsx                  # Search/browse every incident visible to your role, with filters
+    new/page.tsx               # "Log a new incident" form
+    [id]/page.tsx               # Ticket detail page — SLA panel, role-gated action forms, activity timeline
 prisma/
   schema.prisma              # Database schema: User, Incident, IncidentActivity models + ITIL enums
   seed.ts                     # Demo data: one user per role, sample incidents
@@ -52,6 +54,7 @@ src/
                                     # escalate, hold/resume, resolve, close, comment
   components/
     role-switcher.tsx            # Client Component — the "Viewing as" dropdown in the header
+    incident-list.tsx             # Shared ticket-list rendering (used by the dashboard and search page)
   types/itil.ts                  # ITIL business rules: impact/urgency -> priority matrix, SLA targets,
                                    # escalation-tier logic, role/label lookups
 ```
