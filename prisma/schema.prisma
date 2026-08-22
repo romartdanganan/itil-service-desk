@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// A person using the service desk. One table covers every role because
+// ITIL roles are just permissions/behaviour on top of the same "person"
+// concept — a Manager is still a person who can also submit their own
+// incidents.
+model User {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  role  Role   @default(CUSTOMER)
+
+  // Incidents this user raised (they are the "customer" on the ticket).
+  reportedIncidents Incident[] @relation("Requester")
+  // Incidents currently assigned to this user for work (they are the "agent").
+  assignedIncidents Incident[] @relation("Assignee")
+  // Every activity/comment this user authored, across all incidents.
+  activities        IncidentActivity[]
+
+  createdAt DateTime @default(now())
+}
+
+// ITIL support tiers. L1 = first line (triage, easy fixes), L2 = deeper
+// technical skill, L3 = specialist/vendor-level. MANAGER can see and
+// reassign everything but isn't a fix-it tier itself.
+enum Role {
+  CUSTOMER
+  AGENT_L1
+  AGENT_L2
+  AGENT_L3
+  MANAGER
+}
+
+// The ITIL Incident record: "an unplanned interruption to a service,
+// or a reduction in quality of a service."
+model Incident {
+  id           String @id @default(cuid())
+  // Human-facing ticket number, e.g. "INC000042" — what a person reads
+  // and quotes on the phone, as opposed to the opaque `id` above which
+  // only the database/URLs care about.
+  ticketNumber String @unique
+
+  title       String
+  description String
+  category    IncidentCategory
+
+  // Impact and Urgency are captured independently because ITIL derives
+  // Priority from the *combination* of the two (see src/types/itil.ts
+  // for the matrix) — they are not the same axis.
+  impact   Impact
+  urgency  Urgency
+  priority Priority
+
+  status IncidentStatus @default(NEW)
+
+  requester   User   @relation("Requester", fields: [requesterId], references: [id])
+  requesterId String
+
+  assignee   User?   @relation("Assignee", fields: [assigneeId], references: [id])
+  assigneeId String?
+
+  // SLA (Service Level Agreement) targets, calculated from `priority`
+  // at creation time using the policy in src/types/itil.ts. These are
+  // stored (not just computed on the fly) so that a ticket's SLA clock
+  // doesn't silently shift if the policy is edited later.
+  slaResponseDueAt DateTime
+  slaResolveDueAt  DateTime
+  slaBreached      Boolean  @default(false)
+
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+
+  activities IncidentActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum IncidentCategory {
+  HARDWARE
+  SOFTWARE
+  NETWORK
+  ACCESS
+  ACCOUNT
+  OTHER
+}
+
+enum Impact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Priority {
+  P1_CRITICAL
+  P2_HIGH
+  P3_MEDIUM
+  P4_LOW
+}
+
+enum IncidentStatus {
+  NEW
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+// The audit trail for a single incident: every status change, assignment,
+// escalation and comment, in order. This is what makes a ticket's history
+// visible and is a core expectation of any real service desk tool.
+model IncidentActivity {
+  id         String   @id @default(cuid())
+  incident   Incident @relation(fields: [incidentId], references: [id])
+  incidentId String
+
+  actor   User   @relation(fields: [actorId], references: [id])
+  actorId String
+
+  type    ActivityType
+  message String
+
+  createdAt DateTime @default(now())
+}
+
+enum ActivityType {
+  CREATED
+  ASSIGNED
+  ESCALATED
+  STATUS_CHANGED
+  COMMENT
+  RESOLVED
+  CLOSED
+}
