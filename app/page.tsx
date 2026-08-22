@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/src/lib/prisma";
 import { PRIORITY_LABELS } from "@/src/types/itil";
 
@@ -17,21 +18,29 @@ export const dynamic = "force-dynamic";
 // page load meant "render an empty shell, then fetch."
 export default async function Home() {
   const incidents = await prisma.incident.findMany({
-    orderBy: { createdAt: "asc" },
-    include: { assignee: true },
+    orderBy: { createdAt: "desc" },
+    include: { assignee: true, requester: true },
   });
 
   return (
     <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-            ITIL Service Desk — Incidents
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {incidents.length} incident{incidents.length === 1 ? "" : "s"} in
-            the database, loaded via Prisma + SQLite.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+              ITIL Service Desk — Incidents
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {incidents.length} incident{incidents.length === 1 ? "" : "s"}{" "}
+              in the database, loaded via Prisma + SQLite.
+            </p>
+          </div>
+          <Link
+            href="/incidents/new"
+            className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+          >
+            Log New Incident
+          </Link>
         </div>
 
         <ul className="flex flex-col gap-3">
@@ -48,7 +57,8 @@ export default async function Home() {
                 {incident.title}
               </p>
               <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Status: {incident.status} · Assigned to{" "}
+                Status: {incident.status} · Reported by{" "}
+                {incident.requester.name} · Assigned to{" "}
                 {incident.assignee?.name ?? "Unassigned"}
               </p>
             </li>

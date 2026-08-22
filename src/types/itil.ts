@@ -7,12 +7,19 @@
 // often than database structure, and keeping them separate means we never
 // have to write a migration just because the SLA policy changed.
 
+// Importing from "/client" (the full Prisma Client entry point) instead
+// of "/enums" here would drag Node-only code — and eventually the native
+// SQLite binding — into any browser bundle that imports this file, since
+// this file is imported by a Client Component (RoleSwitcher). "/enums" is
+// just plain `{ KEY: 'VALUE' }` objects with zero dependencies, so it's
+// safe on both the server and in the browser.
 import {
   Impact,
   Urgency,
   Priority,
   Role,
-} from "../../app/generated/prisma/client";
+  IncidentCategory,
+} from "../../app/generated/prisma/enums";
 
 /**
  * ITIL Priority Matrix.
@@ -103,4 +110,25 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   P2_HIGH: "P2 — High",
   P3_MEDIUM: "P3 — Medium",
   P4_LOW: "P4 — Low",
+};
+
+export const CATEGORY_LABELS: Record<IncidentCategory, string> = {
+  HARDWARE: "Hardware",
+  SOFTWARE: "Software",
+  NETWORK: "Network",
+  ACCESS: "Access / Permissions",
+  ACCOUNT: "Account",
+  OTHER: "Other",
+};
+
+export const IMPACT_LABELS: Record<Impact, string> = {
+  HIGH: "High — affects many people or a critical system",
+  MEDIUM: "Medium — affects a team or a non-critical system",
+  LOW: "Low — affects one person, workaround exists",
+};
+
+export const URGENCY_LABELS: Record<Urgency, string> = {
+  HIGH: "High — needs fixing now",
+  MEDIUM: "Medium — needs fixing today",
+  LOW: "Low — can wait",
 };
