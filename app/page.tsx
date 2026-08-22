@@ -44,25 +44,38 @@ export default async function Home() {
         </div>
 
         <ul className="flex flex-col gap-3">
-          {incidents.map((incident) => (
-            <li
-              key={incident.id}
-              className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900"
-            >
-              <div className="flex items-center justify-between text-xs font-medium text-zinc-500">
-                <span>{incident.ticketNumber}</span>
-                <span>{PRIORITY_LABELS[incident.priority]}</span>
-              </div>
-              <p className="mt-1 font-medium text-black dark:text-zinc-50">
-                {incident.title}
-              </p>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Status: {incident.status} · Reported by{" "}
-                {incident.requester.name} · Assigned to{" "}
-                {incident.assignee?.name ?? "Unassigned"}
-              </p>
-            </li>
-          ))}
+          {incidents.map((incident) => {
+            const isOpen = incident.status !== "RESOLVED" && incident.status !== "CLOSED";
+            const overdue = isOpen && new Date() > incident.slaResolveDueAt;
+            return (
+              <li key={incident.id}>
+                <Link
+                  href={`/incidents/${incident.id}`}
+                  className="block rounded-lg border border-black/10 bg-white p-4 transition-colors hover:border-black/20 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
+                >
+                  <div className="flex items-center justify-between text-xs font-medium text-zinc-500">
+                    <span>{incident.ticketNumber}</span>
+                    <div className="flex gap-2">
+                      {overdue && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800 dark:bg-red-950 dark:text-red-300">
+                          SLA overdue
+                        </span>
+                      )}
+                      <span>{PRIORITY_LABELS[incident.priority]}</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 font-medium text-black dark:text-zinc-50">
+                    {incident.title}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    Status: {incident.status.replace("_", " ")} · Reported by{" "}
+                    {incident.requester.name} · Assigned to{" "}
+                    {incident.assignee?.name ?? "Unassigned"}
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </main>
     </div>

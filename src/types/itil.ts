@@ -132,3 +132,27 @@ export const URGENCY_LABELS: Record<Urgency, string> = {
   MEDIUM: "Medium — needs fixing today",
   LOW: "Low — can wait",
 };
+
+export function isAgentRole(role: Role): boolean {
+  return (SUPPORT_TIERS as Role[]).includes(role) || role === Role.MANAGER;
+}
+
+/**
+ * ITIL escalation: a ticket a support tier can't resolve moves UP to the
+ * next tier, never back down to the requester. `currentRole` is the role
+ * of whoever the ticket is assigned to right now (or `null` if unassigned,
+ * which counts as "not yet escalated past L1").
+ *
+ * Returns the next tier's Role, or `null` if there's nowhere left to
+ * escalate to (already at the top tier, L3).
+ */
+export function getNextTier(currentRole: Role | null): Role | null {
+  if (currentRole === null || currentRole === Role.CUSTOMER || currentRole === Role.MANAGER) {
+    return SUPPORT_TIERS[0];
+  }
+  const index = SUPPORT_TIERS.indexOf(currentRole);
+  if (index === -1 || index === SUPPORT_TIERS.length - 1) {
+    return null;
+  }
+  return SUPPORT_TIERS[index + 1];
+}
