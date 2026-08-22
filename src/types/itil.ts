@@ -156,3 +156,38 @@ export function getNextTier(currentRole: Role | null): Role | null {
   }
   return SUPPORT_TIERS[index + 1];
 }
+
+/**
+ * How urgent does this ticket's SLA clock look *right now*, for a
+ * dashboard trying to answer "what needs attention before it becomes a
+ * breach" — not just "has it already breached."
+ *
+ * A fixed time threshold (e.g. "at risk if under 1 hour left") wouldn't
+ * work here: a P1 has a 4-hour resolve window entirely, so 1 hour left
+ * is most of the ticket's life still remaining, while a P4 has 72 hours
+ * total, so 1 hour left is effectively already over. Instead this looks
+ * at the *proportion* of the original window that's left — the last 20%
+ * of any ticket's window counts as "at risk," regardless of priority.
+ *
+ * Only meaningful for a ticket that's still open — a resolved/closed
+ * ticket's SLA outcome is the permanently-stored `slaBreached` flag on
+ * the record, not something to recompute against the current time.
+ */
+export type SlaRisk = "BREACHED" | "AT_RISK" | "ON_TRACK";
+
+const AT_RISK_WINDOW_FRACTION = 0.2;
+
+export function getSlaRisk(
+  incident: { createdAt: Date; slaResolveDueAt: Date },
+  now: Date = new Date(),
+): SlaRisk {
+  if (now > incident.slaResolveDueAt) {
+    return "BREACHED";
+  }
+  const totalWindowMs = incident.slaResolveDueAt.getTime() - incident.createdAt.getTime();
+  const remainingMs = incident.slaResolveDueAt.getTime() - now.getTime();
+  if (totalWindowMs > 0 && remainingMs / totalWindowMs <= AT_RISK_WINDOW_FRACTION) {
+    return "AT_RISK";
+  }
+  return "ON_TRACK";
+}

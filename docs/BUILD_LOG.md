@@ -261,6 +261,32 @@ strings and confirming result counts matched the actual database state
 (e.g. `?q=printer` narrowing 4 tickets down to exactly 1; an L1 agent's
 unfiltered search only surfacing the 1 ticket they're allowed to see).
 
+## Stage 14 — SLA "at risk" view for managers
+
+Up to this point, the only way to notice a ticket approaching its SLA
+deadline was to open it and read the countdown — nothing surfaced it
+proactively. Added `getSlaRisk()` to `src/types/itil.ts`, which classifies
+an open ticket as `BREACHED`, `AT_RISK`, or `ON_TRACK`. The interesting
+design decision: "at risk" isn't a fixed time threshold (e.g. "under 1
+hour left") — it's the **last 20% of the ticket's own SLA window**,
+because a fixed threshold doesn't make sense across priorities. A P1 has
+a 4-hour resolve window in total, so "1 hour left" is still 75% of its
+life remaining; a P4 has a 72-hour window, where "1 hour left" is
+basically already gone. Measuring by proportion-of-window-remaining
+instead of raw minutes makes "at risk" mean the same thing regardless of
+which priority a ticket is.
+
+Verified the boundary math directly (10 of 240 minutes left on a P1 →
+`AT_RISK`; exactly 20% remaining → `AT_RISK`; just over 20% → `ON_TRACK`;
+past the deadline → `BREACHED`) before touching any UI. The manager
+dashboard now leads with a "⚠ SLA at risk" section — breached tickets
+first, then at-risk tickets sorted by soonest deadline — and every ticket
+list everywhere (dashboard, queue, search results) now shows an amber
+"At risk" badge alongside the existing red "SLA overdue" one. Confirmed
+end-to-end by artificially aging a real ticket's clock to ~10 minutes
+from breach and watching it appear in the manager's at-risk section
+above the already-breached P1, then restored its original timing.
+
 ---
 
 *(Next stages get appended below as they're built.)*

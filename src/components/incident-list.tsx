@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PRIORITY_LABELS } from "@/src/types/itil";
+import { PRIORITY_LABELS, getSlaRisk } from "@/src/types/itil";
 import type { Incident, User } from "@/app/generated/prisma/client";
 
 // Shared between the role-scoped dashboard (app/page.tsx) and the
@@ -15,7 +15,11 @@ export function isOpenStatus(status: Incident["status"]): boolean {
 }
 
 export function isOverdue(incident: Incident): boolean {
-  return isOpenStatus(incident.status) && new Date() > incident.slaResolveDueAt;
+  return isOpenStatus(incident.status) && getSlaRisk(incident) === "BREACHED";
+}
+
+export function isAtRisk(incident: Incident): boolean {
+  return isOpenStatus(incident.status) && getSlaRisk(incident) === "AT_RISK";
 }
 
 export function IncidentListItem({ incident }: { incident: IncidentRow }) {
@@ -31,6 +35,11 @@ export function IncidentListItem({ incident }: { incident: IncidentRow }) {
             {isOverdue(incident) && (
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800 dark:bg-red-950 dark:text-red-300">
                 SLA overdue
+              </span>
+            )}
+            {isAtRisk(incident) && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                At risk
               </span>
             )}
             <span>{PRIORITY_LABELS[incident.priority]}</span>

@@ -2,7 +2,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { ROLE_LABELS } from "@/src/types/itil";
 import { Role } from "@/app/generated/prisma/client";
-import { IncidentGroup, PageHeader, isOpenStatus } from "@/src/components/incident-list";
+import { IncidentGroup, PageHeader, isOpenStatus, isOverdue, isAtRisk } from "@/src/components/incident-list";
 
 // Without this, Next.js sees no dynamic input (no cookies, no searchParams)
 // on this page and assumes it's safe to pre-render once at build time and
@@ -85,10 +85,24 @@ export default async function Home() {
       orderBy: { createdAt: "desc" },
       include: { assignee: true, requester: true },
     });
+    // Breached first (already overdue, most urgent), then at-risk sorted
+    // by soonest deadline — this is a triage list, not a creation-order
+    // list, so the ticket about to blow its SLA belongs at the top.
+    const slaAtRisk = incidents
+      .filter((i) => isOverdue(i) || isAtRisk(i))
+      .sort((a, b) => {
+        if (isOverdue(a) !== isOverdue(b)) return isOverdue(a) ? -1 : 1;
+        return a.slaResolveDueAt.getTime() - b.slaResolveDueAt.getTime();
+      });
     return (
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
           <PageHeader title="ITIL Service Desk" subtitle="Full visibility across every support tier." />
+          <IncidentGroup
+            title="⚠ SLA at risk"
+            emptyMessage="Nothing breached or close to breaching its SLA right now."
+            incidents={slaAtRisk}
+          />
           <IncidentGroup
             title="Open incidents"
             emptyMessage="Nothing open — every ticket is resolved or closed."
