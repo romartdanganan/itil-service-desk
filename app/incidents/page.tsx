@@ -51,11 +51,17 @@ export default async function SearchIncidentsPage({
 
   const filters: Prisma.IncidentWhereInput[] = [visibilityWhere];
   if (q.length > 0) {
+    // `mode: "insensitive"` matters here specifically because this ran on
+    // SQLite during earlier development, where `contains` compiles to a
+    // LIKE that's case-insensitive for ASCII by default — this looked
+    // like it "just worked" without the mode. PostgreSQL's LIKE is
+    // case-sensitive by default, so switching databases silently broke
+    // "DRIVE" from matching "drive" until this was added explicitly.
     filters.push({
       OR: [
-        { ticketNumber: { contains: q } },
-        { title: { contains: q } },
-        { description: { contains: q } },
+        { ticketNumber: { contains: q, mode: "insensitive" } },
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
       ],
     });
   }

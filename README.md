@@ -26,7 +26,7 @@ Problem Management and Change Management are intentionally out of scope for v1 �
 - **Framework:** Next.js (App Router) + React Server Components
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
-- **Database:** SQLite, accessed through **Prisma ORM** (v7, driver-adapter based)
+- **Database:** PostgreSQL (Prisma Postgres), accessed through **Prisma ORM** (v7, driver-adapter based)
 - **Domain logic:** Strongly-typed ITIL rules in `src/types/itil.ts` (priority matrix, SLA policy), kept separate from the database schema
 
 ## Project Architecture / Directory Map
@@ -45,7 +45,7 @@ prisma/
   migrations/                 # Versioned history of schema changes
 src/
   lib/
-    prisma.ts                  # Shared Prisma client instance (with SQLite driver adapter)
+    prisma.ts                  # Shared Prisma client instance (with the PostgreSQL driver adapter)
     session.ts                  # Reads the "acting as" cookie -> current User (the v1 stand-in for auth)
   actions/
     session.ts                  # Server Action: switch the active "logged in" user
@@ -61,21 +61,21 @@ src/
 
 ## Local Quickstart Guide
 
-Requirements: Node.js (v20+ recommended).
+Requirements: Node.js (v20+ recommended) and a PostgreSQL database — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for provisioning a free one on Prisma Postgres in a couple of minutes if you don't already have one.
 
 ```bash
 # 1. Clone the repo
 git clone https://github.com/romartdanganan/itil-service-desk.git
 cd itil-service-desk
 
-# 2. Install dependencies
+# 2. Install dependencies (this also runs `prisma generate` via postinstall)
 npm install
 
-# 3. Set up your local environment file
+# 3. Set up your local environment file, then fill in DATABASE_URL
 cp .env.example .env
 
-# 4. Create the local SQLite database and apply the schema
-npx prisma migrate dev
+# 4. Apply the schema to your database
+npx prisma migrate deploy
 
 # 5. Load demo data (users + sample incidents)
 npx prisma db seed
@@ -87,6 +87,10 @@ npm run dev
 Then open [http://localhost:3000](http://localhost:3000).
 
 To browse the database visually, run `npx prisma studio` and open the URL it prints.
+
+## Deployment
+
+Deployed on **Vercel**, backed by **Prisma Postgres** — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup, including why SQLite (used earlier in development) doesn't work on a serverless host and a real cross-database bug the switch surfaced.
 
 ## Tests
 

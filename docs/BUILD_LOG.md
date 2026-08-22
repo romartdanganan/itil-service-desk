@@ -350,6 +350,56 @@ routing) still relies on the manual-verification-against-real-database
 approach from earlier stages, not automated integration tests — a
 reasonable next testing investment, not yet made.
 
+## Stage 17 — Switching from SQLite to PostgreSQL for deployment
+
+Local development had used SQLite from Stage 3 onward — great for "clone
+and run," but incompatible with deploying to a serverless host like
+Vercel, whose filesystem is ephemeral at runtime. Rather than host
+somewhere with a persistent disk and keep SQLite, switched the database
+to **Prisma Postgres** — the more defensible "real production database"
+answer, and one that pairs with **Vercel**, the most recognizable host
+for a Next.js portfolio project. Full detail is in the new
+`docs/DEPLOYMENT.md`, which is being kept as a living document the same
+way `BUILD_LOG.md` is.
+
+This required the user to provision the database themselves (a Prisma
+Console account isn't something this session could create), then six
+coordinated code changes: the schema's datasource provider, the
+PostgreSQL driver adapter (`@prisma/adapter-pg` + `pg`, replacing
+`@prisma/adapter-better-sqlite3`) in both `src/lib/prisma.ts` and
+`prisma/seed.ts`, a fresh migration baseline (the old migrations were
+SQLite-specific SQL), a `postinstall: prisma generate` script so Vercel's
+build regenerates the gitignored client, and removing the now-unused
+SQLite dependencies.
+
+**The genuinely interesting part:** this surfaced a real cross-database
+bug, not a hypothetical one. The search page's text filter relied on
+SQLite's default case-insensitive `LIKE` — every test up to this point
+searched with matching case, so it looked correct. PostgreSQL's `LIKE`
+is case-sensitive by default; the identical query with different casing
+(`"DRIVE"` vs. `"drive"`) silently returned zero results once the
+database switched. Caught by deliberately testing a mixed-case search
+against the new database rather than assuming SQLite behavior would
+carry over, and fixed with Prisma's `mode: "insensitive"` on the search
+filter. This is a good example of something a type-checker and a green
+test suite both miss — it's a runtime provider default, not a type — and
+exactly why "the build succeeded" and "I ran the actual feature" are
+different claims.
+
+Verified the whole stack post-switch: seeded the new database, re-ran
+the full take→escalate→resolve→close lifecycle against it directly, hit
+the dashboard/detail/search pages and confirmed they render from
+Postgres correctly, re-ran the Vitest suite (unaffected, since those
+tests have no database dependency), and ran an actual production build
+(`npm run build`, the exact command Vercel runs) followed by `npm start`
+to confirm the compiled output serves correctly — not just that the dev
+server does.
+
+Deploying to Vercel itself is a separate step handled in the user's own
+Vercel account (see `docs/DEPLOYMENT.md` Stage D3) — no credentials an
+agent could hold are involved, since Vercel's GitHub integration
+authenticates through the browser.
+
 ---
 
 *(Next stages get appended below as they're built.)*
