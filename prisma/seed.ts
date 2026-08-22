@@ -82,6 +82,7 @@ async function main() {
         status: "NEW",
         requesterId: customer.id,
         assigneeId: sample.assignee.id,
+        currentTier: sample.assignee.role,
         slaResponseDueAt,
         slaResolveDueAt,
       },

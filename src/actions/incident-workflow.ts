@@ -66,6 +66,7 @@ export async function takeIncident(formData: FormData) {
       where: { id: incidentId },
       data: {
         assigneeId: activeUser.id,
+        currentTier: activeUser.role,
         status: "IN_PROGRESS",
       },
     }),
@@ -110,6 +111,7 @@ export async function reassignIncident(formData: FormData) {
       where: { id: incidentId },
       data: {
         assigneeId: newAssignee.id,
+        currentTier: newAssignee.role,
         status: "IN_PROGRESS",
       },
     }),
@@ -146,7 +148,11 @@ export async function escalateIncident(formData: FormData) {
   }
 
   const incident = await loadIncident(incidentId);
-  const nextTier = getNextTier(incident.assignee?.role ?? null);
+  // Escalate off `currentTier`, not `assignee?.role` — a ticket that was
+  // already escalated once and is now sitting unassigned has no assignee
+  // to read a tier off of, and `currentTier` is exactly the field that
+  // remembers "which tier's queue is this in right now" for that case.
+  const nextTier = getNextTier(incident.currentTier);
 
   if (nextTier === null) {
     throw new Error("This ticket is already at the highest support tier (L3).");
@@ -157,7 +163,11 @@ export async function escalateIncident(formData: FormData) {
       where: { id: incidentId },
       data: {
         assigneeId: null,
-        status: "IN_PROGRESS",
+        currentTier: nextTier,
+        // Back to NEW, not IN_PROGRESS — an escalated ticket is unassigned
+        // and waiting in the next tier's queue, nobody is actively working
+        // it yet.
+        status: "NEW",
       },
     }),
     prisma.incidentActivity.create({

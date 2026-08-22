@@ -69,6 +69,14 @@ model Incident {
   assignee   User?   @relation("Assignee", fields: [assigneeId], references: [id])
   assigneeId String?
 
+  // Which support tier's queue this ticket currently belongs to. While
+  // `assignee` is set, this always matches the assignee's role — but a
+  // ticket sitting unassigned (freshly logged, or just escalated and
+  // waiting for someone at the new tier to pick it up) has no assignee to
+  // read a tier off of, so this field is what routes it into the right
+  // tier's queue on each agent's dashboard.
+  currentTier Role @default(AGENT_L1)
+
   // SLA (Service Level Agreement) targets, calculated from `priority`
   // at creation time using the policy in src/types/itil.ts. These are
   // stored (not just computed on the fly) so that a ticket's SLA clock
