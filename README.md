@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ITIL Service Desk Simulator
 
-## Getting Started
+A web-based IT Service Desk simulator that implements a real ITIL Incident Management workflow — ticket logging, priority calculation, SLA tracking, and L1/L2/L3 escalation — built as a portfolio project for IT/Service Management roles.
 
-First, run the development server:
+## Project Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+This app simulates the day-to-day tool an IT service desk agent works in: logging incidents, prioritizing them by business impact and urgency, tracking them against SLA deadlines, and escalating them through support tiers until resolved. It's built with a real relational database and a typed data model, not mock/hardcoded data.
+
+## ITIL Framework Concepts Simulated
+
+- **Incident Management** — the lifecycle of an unplanned service interruption, from `NEW` → `IN_PROGRESS` → (`ON_HOLD`) → `RESOLVED` → `CLOSED`.
+- **Impact vs. Urgency vs. Priority** — Impact (how much of the business is affected) and Urgency (how fast it needs fixing) are captured independently and combined via a priority matrix to derive Priority (P1–P4). See `src/types/itil.ts`.
+- **SLA (Service Level Agreement) tracking** — each priority level has a target response time and resolution time; every incident stores its own SLA due dates, calculated at creation.
+- **Support Tiers (L1 / L2 / L3) & Escalation** — incidents are assigned to Level 1 (service desk), Level 2 (technical support), or Level 3 (specialist/engineering) agents, modeling how real tickets escalate when a tier can't resolve them.
+- **Audit trail** — every status change, assignment, and comment on an incident is recorded as an `IncidentActivity`, so a ticket's full history is visible.
+
+Problem Management and Change Management are intentionally out of scope for v1 — this project builds one ITIL process completely before expanding to others.
+
+## Tech Stack
+
+- **Framework:** Next.js (App Router) + React Server Components
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Database:** SQLite, accessed through **Prisma ORM** (v7, driver-adapter based)
+- **Domain logic:** Strongly-typed ITIL rules in `src/types/itil.ts` (priority matrix, SLA policy), kept separate from the database schema
+
+## Project Architecture / Directory Map
+
+```
+app/
+  page.tsx           # Home page — Server Component, queries incidents directly
+  layout.tsx          # Root HTML layout
+prisma/
+  schema.prisma       # Database schema: User, Incident, IncidentActivity models + ITIL enums
+  seed.ts              # Demo data: one user per role, sample incidents
+  migrations/          # Versioned history of schema changes
+src/
+  lib/prisma.ts        # Shared Prisma client instance (with SQLite driver adapter)
+  types/itil.ts         # ITIL business rules: impact/urgency -> priority matrix, SLA targets, role labels
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local Quickstart Guide
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Requirements: Node.js (v20+ recommended).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 1. Clone the repo
+git clone https://github.com/romartdanganan/itil-service-desk.git
+cd itil-service-desk
 
-## Learn More
+# 2. Install dependencies
+npm install
 
-To learn more about Next.js, take a look at the following resources:
+# 3. Set up your local environment file
+cp .env.example .env
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 4. Create the local SQLite database and apply the schema
+npx prisma migrate dev
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 5. Load demo data (users + sample incidents)
+npx prisma db seed
 
-## Deploy on Vercel
+# 6. Run the dev server
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Then open [http://localhost:3000](http://localhost:3000).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To browse the database visually, run `npx prisma studio` and open the URL it prints.
