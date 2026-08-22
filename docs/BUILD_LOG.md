@@ -471,6 +471,11 @@ confirmed the list page's score and badge updated correctly at each step
 badge) — proving the "status reflects your latest attempt" design
 actually works, not just that the schema supports it.
 
+Pushed to `main`; Vercel auto-deployed within about 30 seconds (confirmed
+by polling `/training` until it flipped from `404` to `200`). Fetched the
+live `/training` page afterward and confirmed all 6 scenarios list
+correctly against the production database, not just the local one.
+
 ---
 
 *(Next stages get appended below as they're built.)*
