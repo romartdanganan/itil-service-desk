@@ -179,6 +179,26 @@ ticket — not how a real service desk tool works.
   live ticket and re-fetching both dashboards to watch it move from one
   agent's queue to the next tier's.
 
+## Stage 9 — Docs: build log + interview talking points (`95c3fe8`)
+
+Added this file and `docs/PROJECT_SUMMARY.md` — a stage-by-stage build
+history and a reference for describing the project to an employer
+(elevator pitch, key decisions and reasoning, resume bullets, likely
+interview questions). Both are meant to be kept in sync with the repo
+going forward, not a one-time snapshot.
+
+## Stage 10 — Split dashboards into open vs. resolved/closed
+
+As tickets accumulate, a flat list mixing every open ticket with every
+resolved/closed one forever stops being useful — a manager or a customer
+mainly cares about what's still open. The manager's "All incidents" list
+and the customer's "My incidents" list are both now split into two
+`IncidentGroup`s: **Open** (statuses `NEW` / `IN_PROGRESS` / `ON_HOLD`)
+and **Resolved & closed**. Refactored the open/closed check into a single
+`isOpenStatus()` helper in `app/page.tsx` — it's now used by the SLA
+overdue badge and by both dashboard splits, instead of three slightly
+different ways of asking the same question.
+
 ---
 
 *(Next stages get appended below as they're built.)*

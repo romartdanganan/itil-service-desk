@@ -16,9 +16,12 @@ type IncidentRow = Incident & { assignee: User | null; requester: User };
 
 const OPEN_STATUSES = ["NEW", "IN_PROGRESS", "ON_HOLD"] as const;
 
+function isOpenStatus(status: Incident["status"]): boolean {
+  return status !== "RESOLVED" && status !== "CLOSED";
+}
+
 function isOverdue(incident: Incident): boolean {
-  const isOpen = incident.status !== "RESOLVED" && incident.status !== "CLOSED";
-  return isOpen && new Date() > incident.slaResolveDueAt;
+  return isOpenStatus(incident.status) && new Date() > incident.slaResolveDueAt;
 }
 
 function IncidentListItem({ incident }: { incident: IncidentRow }) {
@@ -143,9 +146,14 @@ export default async function Home() {
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
           <PageHeader subtitle={`Tickets you've reported, ${activeUser.name}.`} />
           <IncidentGroup
-            title="My incidents"
-            emptyMessage="You haven't reported any incidents yet."
-            incidents={myIncidents}
+            title="Open"
+            emptyMessage="Nothing open right now."
+            incidents={myIncidents.filter((i) => isOpenStatus(i.status))}
+          />
+          <IncidentGroup
+            title="Resolved & closed"
+            emptyMessage="No resolved or closed tickets yet."
+            incidents={myIncidents.filter((i) => !isOpenStatus(i.status))}
           />
         </main>
       </div>
@@ -162,9 +170,14 @@ export default async function Home() {
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
           <PageHeader subtitle="Full visibility across every support tier." />
           <IncidentGroup
-            title="All incidents"
-            emptyMessage="No incidents logged yet."
-            incidents={incidents}
+            title="Open incidents"
+            emptyMessage="Nothing open — every ticket is resolved or closed."
+            incidents={incidents.filter((i) => isOpenStatus(i.status))}
+          />
+          <IncidentGroup
+            title="Resolved & closed"
+            emptyMessage="Nothing resolved or closed yet."
+            incidents={incidents.filter((i) => !isOpenStatus(i.status))}
           />
         </main>
       </div>
