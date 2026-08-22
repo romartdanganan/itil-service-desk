@@ -81,9 +81,19 @@ model Incident {
   // at creation time using the policy in src/types/itil.ts. These are
   // stored (not just computed on the fly) so that a ticket's SLA clock
   // doesn't silently shift if the policy is edited later.
-  slaResponseDueAt DateTime
-  slaResolveDueAt  DateTime
-  slaBreached      Boolean  @default(false)
+  //
+  // Response and Resolution are two separate SLA promises in ITIL — "we
+  // acknowledged this" is not the same commitment as "we fixed this" —
+  // so each gets its own due date AND its own permanent breached
+  // verdict, recorded the moment it's actually met (first response /
+  // resolution), not left as a countdown that goes stale once the
+  // ticket closes.
+  slaResponseDueAt    DateTime
+  respondedAt         DateTime?
+  slaResponseBreached Boolean   @default(false)
+
+  slaResolveDueAt    DateTime
+  slaResolveBreached Boolean  @default(false)
 
   resolutionNotes String?
   resolvedAt      DateTime?

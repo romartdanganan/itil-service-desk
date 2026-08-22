@@ -84,6 +84,11 @@ async function main() {
         assigneeId: sample.assignee.id,
         currentTier: sample.assignee.role,
         slaResponseDueAt,
+        // Seeded tickets are created pre-assigned (bypassing the normal
+        // takeIncident flow), so first response is backfilled here too —
+        // otherwise these demo tickets would sit with no response verdict
+        // despite already having an assignee.
+        respondedAt: new Date(),
         slaResolveDueAt,
       },
     });

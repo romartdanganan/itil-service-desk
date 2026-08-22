@@ -170,8 +170,9 @@ export function getNextTier(currentRole: Role | null): Role | null {
  * of any ticket's window counts as "at risk," regardless of priority.
  *
  * Only meaningful for a ticket that's still open — a resolved/closed
- * ticket's SLA outcome is the permanently-stored `slaBreached` flag on
- * the record, not something to recompute against the current time.
+ * ticket's SLA outcome is the permanently-stored `slaResolveBreached`
+ * flag on the record, not something to recompute against the current
+ * time.
  */
 export type SlaRisk = "BREACHED" | "AT_RISK" | "ON_TRACK";
 

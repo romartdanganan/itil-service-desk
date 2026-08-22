@@ -48,6 +48,24 @@ function revalidateIncident(incidentId: string) {
 }
 
 /**
+ * First response and resolution are two separate SLA promises in ITIL —
+ * "we acknowledged this" isn't the same commitment as "we fixed this" —
+ * so Response gets its own permanent breached/met verdict too, recorded
+ * the first time the service desk actually does something about a
+ * ticket (takes it, gets reassigned to someone, or is resolved outright
+ * without ever being formally "taken"). Once `respondedAt` is set once,
+ * it's never touched again — re-taking a ticket after an escalation
+ * doesn't count as a second "first" response.
+ */
+function firstResponseFields(incident: { respondedAt: Date | null; slaResponseDueAt: Date }) {
+  if (incident.respondedAt !== null) {
+    return {};
+  }
+  const respondedAt = new Date();
+  return { respondedAt, slaResponseBreached: respondedAt > incident.slaResponseDueAt };
+}
+
+/**
  * "Take" a ticket: an agent or manager assigns it to themselves. This is
  * how a ticket goes from sitting unowned in a tier's queue to someone
  * actually working it — the first real step of the incident lifecycle
@@ -61,6 +79,8 @@ export async function takeIncident(formData: FormData) {
     throw new Error("Only agents and managers can take a ticket.");
   }
 
+  const incident = await loadIncident(incidentId);
+
   await prisma.$transaction([
     prisma.incident.update({
       where: { id: incidentId },
@@ -68,6 +88,7 @@ export async function takeIncident(formData: FormData) {
         assigneeId: activeUser.id,
         currentTier: activeUser.role,
         status: "IN_PROGRESS",
+        ...firstResponseFields(incident),
       },
     }),
     prisma.incidentActivity.create({
@@ -106,6 +127,8 @@ export async function reassignIncident(formData: FormData) {
     throw new Error("Can only reassign to an agent or manager.");
   }
 
+  const incident = await loadIncident(incidentId);
+
   await prisma.$transaction([
     prisma.incident.update({
       where: { id: incidentId },
@@ -113,6 +136,7 @@ export async function reassignIncident(formData: FormData) {
         assigneeId: newAssignee.id,
         currentTier: newAssignee.role,
         status: "IN_PROGRESS",
+        ...firstResponseFields(incident),
       },
     }),
     prisma.incidentActivity.create({
@@ -242,7 +266,7 @@ export async function resolveIncident(formData: FormData) {
 
   const incident = await loadIncident(incidentId);
   const resolvedAt = new Date();
-  const slaBreached = resolvedAt > incident.slaResolveDueAt;
+  const slaResolveBreached = resolvedAt > incident.slaResolveDueAt;
 
   await prisma.$transaction([
     prisma.incident.update({
@@ -251,7 +275,12 @@ export async function resolveIncident(formData: FormData) {
         status: "RESOLVED",
         resolutionNotes: resolutionNotes.trim(),
         resolvedAt,
-        slaBreached,
+        slaResolveBreached,
+        // Covers the edge case of a ticket resolved without ever being
+        // formally "taken" first (e.g. a manager fixes something on an
+        // unassigned NEW ticket directly) — Response SLA still needs a
+        // verdict even though take/reassign never ran.
+        ...firstResponseFields(incident),
       },
     }),
     prisma.incidentActivity.create({
@@ -259,7 +288,7 @@ export async function resolveIncident(formData: FormData) {
         incidentId,
         actorId: activeUser.id,
         type: "RESOLVED",
-        message: `${activeUser.name} resolved this ticket.${slaBreached ? " (SLA breached)" : " (within SLA)"}`,
+        message: `${activeUser.name} resolved this ticket.${slaResolveBreached ? " (SLA breached)" : " (within SLA)"}`,
       },
     }),
   ]);

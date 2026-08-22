@@ -152,14 +152,20 @@ export default async function IncidentDetailPage({
           </dl>
 
           {/* SLA panel — the ticking commitment made the instant this ticket
-              was raised (see calculateSlaDueDates in src/types/itil.ts). Once
-              a ticket is resolved/closed, the "time left" framing stops
-              mattering — what matters from then on is the permanent
-              slaBreached flag set at the moment of resolution. */}
+              was raised (see calculateSlaDueDates in src/types/itil.ts).
+              Response and Resolution are two separate promises, each with
+              its own permanent breached/met verdict recorded the moment
+              it's actually met — respondedAt on first contact, resolvedAt
+              on resolution — rather than staying a "time left" countdown
+              that goes stale once the moment has passed. */}
           <div className="mt-4 flex flex-col gap-2 rounded-md border border-black/10 p-3 text-sm dark:border-white/10">
             <div className="flex items-center justify-between">
               <span className="text-zinc-500">First response SLA</span>
-              {isOpen ? (
+              {incident.respondedAt ? (
+                <Badge tone={incident.slaResponseBreached ? "danger" : "success"}>
+                  {incident.slaResponseBreached ? "Breached" : "Met SLA"}
+                </Badge>
+              ) : isOpen ? (
                 <Badge tone={responseDeadline.overdue ? "danger" : "neutral"}>
                   {responseDeadline.text}
                 </Badge>
@@ -174,8 +180,8 @@ export default async function IncidentDetailPage({
                   {resolveDeadline.text}
                 </Badge>
               ) : (
-                <Badge tone={incident.slaBreached ? "danger" : "success"}>
-                  {incident.slaBreached ? "Breached" : "Met SLA"}
+                <Badge tone={incident.slaResolveBreached ? "danger" : "success"}>
+                  {incident.slaResolveBreached ? "Breached" : "Met SLA"}
                 </Badge>
               )}
             </div>

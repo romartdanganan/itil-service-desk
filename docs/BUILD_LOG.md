@@ -287,6 +287,41 @@ end-to-end by artificially aging a real ticket's clock to ~10 minutes
 from breach and watching it appear in the manager's at-risk section
 above the already-breached P1, then restored its original timing.
 
+## Stage 15 — Response SLA gets its own permanent verdict
+
+A real gap, not a new feature request: the schema had tracked a
+`slaResponseDueAt` (first-response) target since Stage 3, but nothing
+ever recorded whether it was actually met — the detail page just showed
+a live countdown that quietly became meaningless once a ticket closed.
+Resolution SLA, by contrast, got a permanent `slaBreached` flag the
+moment a ticket was resolved. That asymmetry meant the two SLA promises
+ITIL treats as genuinely separate ("we acknowledged this" vs. "we fixed
+this") weren't actually being held to the same standard.
+
+Fixed by adding `respondedAt` and `slaResponseBreached` to `Incident`,
+and — since two similarly-named breached flags on one model is a
+readability trap waiting to happen — renamed the existing `slaBreached`
+to `slaResolveBreached` in the same migration, so it's never ambiguous
+which SLA a given flag refers to. `prisma migrate dev` couldn't run
+non-interactively in this environment (it wanted to confirm a
+destructive drop-and-recreate for the rename), so the migration SQL was
+hand-written using `ALTER TABLE ... RENAME COLUMN` instead — a better
+outcome anyway, since it preserves the 4 existing rows' data instead of
+dropping and recreating the column.
+
+A shared `firstResponseFields()` helper in `incident-workflow.ts` records
+`respondedAt`/`slaResponseBreached` the first time the service desk does
+anything to a ticket — takes it, gets it reassigned, or resolves it
+outright without ever formally being "taken" first (a real edge case: a
+manager can resolve an untouched NEW ticket directly) — and is a no-op
+on every call after the first, so re-taking a ticket after an escalation
+never overwrites the original response time.
+
+Verified by simulating a take on a live NEW ticket and confirming
+`respondedAt` got set exactly once (a second call left it unchanged),
+then fetching the ticket's detail page and confirming "First response
+SLA" switched from a countdown to a permanent "Met SLA" badge.
+
 ---
 
 *(Next stages get appended below as they're built.)*
