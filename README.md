@@ -1,5 +1,7 @@
 # ITIL Service Desk Simulator
 
+**Live demo: [itil-service-desk.vercel.app](https://itil-service-desk.vercel.app/)** — pick a user from "Viewing as" in the header to try it as a customer, an L1/L2/L3 agent, or a manager.
+
 A web-based IT Service Desk simulator that implements a real ITIL Incident Management workflow — ticket logging, priority calculation, SLA tracking, and L1/L2/L3 escalation — built as a portfolio project for IT/Service Management roles.
 
 ## Project Overview
@@ -90,7 +92,7 @@ To browse the database visually, run `npx prisma studio` and open the URL it pri
 
 ## Deployment
 
-Deployed on **Vercel**, backed by **Prisma Postgres** — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup, including why SQLite (used earlier in development) doesn't work on a serverless host and a real cross-database bug the switch surfaced.
+Live at **[itil-service-desk.vercel.app](https://itil-service-desk.vercel.app/)** — deployed on **Vercel**, backed by **Prisma Postgres**. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup, including why SQLite (used earlier in development) doesn't work on a serverless host and a real cross-database bug the switch surfaced.
 
 ## Tests
 

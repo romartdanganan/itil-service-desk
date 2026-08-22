@@ -109,4 +109,10 @@ handles auth through the browser:
 4. Every future push to `main` auto-deploys — no separate deploy step
    needed after this one-time setup.
 
-*(Live URL added here once Stage D3 is complete.)*
+**Live at: [itil-service-desk.vercel.app](https://itil-service-desk.vercel.app/)**
+
+Verified live, not just "the deploy succeeded": fetched the home page,
+`/incidents` (search), and `/incidents/new` and confirmed all three
+return `200` and the home page renders real seeded data (e.g. "Card
+payment terminals down store-wide") pulled from the production Postgres
+database, not a cached or stale build.

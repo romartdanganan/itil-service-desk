@@ -400,6 +400,15 @@ Vercel account (see `docs/DEPLOYMENT.md` Stage D3) — no credentials an
 agent could hold are involved, since Vercel's GitHub integration
 authenticates through the browser.
 
+## Stage 18 — Live at itil-service-desk.vercel.app
+
+The project is deployed: **https://itil-service-desk.vercel.app/**.
+Verified it's actually working, not just that the deploy succeeded —
+fetched the home page, `/incidents`, and `/incidents/new` and confirmed
+all three return `200`, with the home page rendering real data from the
+production Postgres database (a seeded incident title appearing in the
+response), not a stale or cached build.
+
 ---
 
 *(Next stages get appended below as they're built.)*
