@@ -6,7 +6,7 @@ A web-based IT Service Desk simulator that implements a real ITIL Incident Manag
 
 This app simulates the day-to-day tool an IT service desk agent works in: logging incidents, prioritizing them by business impact and urgency, tracking them against SLA deadlines, and escalating them through support tiers until resolved. It's built with a real relational database and a typed data model, not mock/hardcoded data.
 
-**Docs:** [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) is a stage-by-stage history of how this project was built and why. [`docs/PROJECT_SUMMARY.md`](docs/PROJECT_SUMMARY.md) is a talking-points reference for describing this project to an employer.
+**Docs:** [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) is a stage-by-stage history of how this project was built and why.
 
 ## ITIL Framework Concepts Simulated
 

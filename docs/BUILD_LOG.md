@@ -181,11 +181,22 @@ ticket — not how a real service desk tool works.
 
 ## Stage 9 — Docs: build log + interview talking points (`95c3fe8`)
 
-Added this file and `docs/PROJECT_SUMMARY.md` — a stage-by-stage build
-history and a reference for describing the project to an employer
-(elevator pitch, key decisions and reasoning, resume bullets, likely
-interview questions). Both are meant to be kept in sync with the repo
-going forward, not a one-time snapshot.
+Added this file, plus a personal talking-points reference (elevator
+pitch, key decisions and reasoning, resume bullets, likely interview
+questions) kept locally and out of version control — see the note in
+Stage 10 below. Both are meant to be kept in sync with the project going
+forward, not a one-time snapshot.
+
+## Stage 10 — Keep the talking-points doc local-only
+
+The interview talking-points file moved to `docs/private/` (already
+covered by an existing `.gitignore` rule) and was untracked from git, so
+it's readable locally but never pushed to GitHub — anyone else with
+access to the repo shouldn't see the behind-the-scenes framing of why
+certain scope cuts were made. Note: it had already been pushed once in
+commit `95c3fe8` before this change, so it's still recoverable from that
+commit's history on the remote unless that history is separately
+rewritten.
 
 ## Stage 10 — Split dashboards into open vs. resolved/closed
 
