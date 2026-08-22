@@ -87,3 +87,14 @@ npm run dev
 Then open [http://localhost:3000](http://localhost:3000).
 
 To browse the database visually, run `npx prisma studio` and open the URL it prints.
+
+## Tests
+
+The ITIL business rules (`src/types/itil.ts`) — the priority matrix, SLA windows, escalation-tier logic, and SLA risk classification — have a unit test suite in `src/types/itil.test.ts`, run with [Vitest](https://vitest.dev):
+
+```bash
+npm test          # run once
+npm run test:watch # re-run on file changes
+```
+
+Workflow behavior (take/escalate/resolve/close, role visibility, tier routing) is currently verified manually against the real dev database rather than with automated integration tests — see the testing notes in `docs/BUILD_LOG.md` for how each feature was checked.

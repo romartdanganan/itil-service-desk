@@ -322,6 +322,34 @@ Verified by simulating a take on a live NEW ticket and confirming
 then fetching the ticket's detail page and confirming "First response
 SLA" switched from a countdown to a permanent "Met SLA" badge.
 
+## Stage 16 — A real automated test suite
+
+Every feature up to this point was verified by hand each time — start the
+dev server, run a throwaway script against the real database, delete the
+script, move on. That proves a feature works *once*, but proves nothing
+about whether the next change quietly breaks it. Added
+[Vitest](https://vitest.dev) and a real test suite,
+`src/types/itil.test.ts`, covering the pure business-rule functions in
+`src/types/itil.ts`: the full 3×3 Impact×Urgency priority matrix, SLA
+window calculation per priority, the escalation chain (including the
+"nowhere left to escalate past L3" edge case), and the SLA risk
+boundaries introduced in Stage 14 (the exact 20%-remaining cutoff,
+formalized as a permanent regression test instead of a one-off manual
+check).
+
+These functions were the right place to start unit testing: no database,
+no server, no mocking required — pure functions in, values out — which
+is exactly why they were kept separate from the schema and the UI in the
+first place (see Stage 3). To prove the suite isn't just vacuously
+passing, deliberately broke the priority matrix (`HIGH`/`HIGH` returning
+`P2_HIGH` instead of `P1_CRITICAL`) and confirmed 2 tests failed with a
+clear diff before reverting the change and re-confirming all 28 pass.
+
+Workflow logic (take/escalate/resolve/close, role-based visibility, tier
+routing) still relies on the manual-verification-against-real-database
+approach from earlier stages, not automated integration tests — a
+reasonable next testing investment, not yet made.
+
 ---
 
 *(Next stages get appended below as they're built.)*
