@@ -41,6 +41,8 @@ model User {
   // Every attempt at a training scenario this user has made — see
   // TrainingAttempt for why "every attempt" rather than "current answer".
   trainingAttempts  TrainingAttempt[]
+  // This user's simulated inbox — see Notification below.
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
 }
@@ -114,7 +116,8 @@ model Incident {
   resolvedAt      DateTime?
   closedAt        DateTime?
 
-  activities IncidentActivity[]
+  activities    IncidentActivity[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +184,33 @@ enum ActivityType {
   COMMENT
   RESOLVED
   CLOSED
+}
+
+// A simulated email notification — this app never sends a real email
+// (no mail provider, nothing leaves the app), but every real service
+// desk tool pings someone the moment their ticket moves: an agent gets
+// assigned something, a customer's ticket gets resolved. Modeling that
+// as an in-app "inbox" is what makes checking `/inbox` feel like an
+// actual part of the job, not just a UI afterthought — see
+// docs/BUILD_LOG.md for why this was built at all.
+//
+// Denormalizes `subject`/`body` as plain text (rather than, say,
+// composing them from IncidentActivity + a template at read time)
+// because a notification is a point-in-time message — "your ticket was
+// resolved" shouldn't reword itself if the ticket's title changes later.
+model Notification {
+  id          String @id @default(cuid())
+  recipient   User   @relation(fields: [recipientId], references: [id])
+  recipientId String
+
+  incident   Incident? @relation(fields: [incidentId], references: [id])
+  incidentId String?
+
+  subject String
+  body    String
+  read    Boolean @default(false)
+
+  createdAt DateTime @default(now())
 }
 
 // The Training Simulator: a "call comes in" practice mode, separate from

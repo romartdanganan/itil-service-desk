@@ -565,6 +565,66 @@ to `/` 307-redirects to `/login`, confirmed an authenticated request to
 creates a `CUSTOMER` account with `isDemoAccount: false` regardless of
 any other field a crafted request might include.
 
+## Stage 21 — Simulated email notifications (`/inbox`)
+
+The user's steer for this stage was explicit: keep the app feeling like
+an actual IT job to practice against, and specifically called out
+"emails" as part of what a real service desk realistically has. No real
+email provider was set up (out of scope for a portfolio demo, and a real
+cost/account dependency like the Postgres/Vercel steps earlier), so this
+models the same behavior as an in-app "inbox" — the message content a
+real deployment would have emailed, without anything actually leaving
+the app.
+
+**New model:** `Notification` — `recipientId`, an optional `incidentId`
+link, `subject`/`body` (denormalized as plain text rather than composed
+from `IncidentActivity` at read time, since a notification is a
+point-in-time message that shouldn't reword itself if the ticket's title
+changes later), and a `read` flag.
+
+**Triggers**, wired directly into the existing `incident-workflow.ts`
+Server Actions as extra operations inside the same `$transaction([...])`
+arrays (atomic with the ticket update and activity row each one already
+writes):
+
+- **Take / reassign** → notify the new assignee. Reassign also notifies
+  the requester, but *only* on the ticket's actual first response — not
+  every time it changes hands after an escalation. This reuses the
+  existing `firstResponseFields()` first-response detection from Stage
+  15 outright, rather than inventing a second "have we told them yet"
+  flag: `"respondedAt" in firstResponseFields(incident)` is `true`
+  exactly once, on the true first response, which is exactly the
+  condition this needed too.
+- **Escalate** → notify the requester their ticket moved to the next
+  tier.
+- **Resolve** → notify the requester, including the resolution notes.
+- **Close** → notify the requester, but only if someone closed it *for*
+  them (a manager, on their behalf) — closing your own ticket doesn't
+  need a notification telling you what you just did.
+- **Comment** → notify "the other party": a customer's comment notifies
+  the assignee (if the ticket has one yet); an agent's or manager's
+  comment notifies the requester. Never notifies the comment's own
+  author.
+
+**UI:** `/inbox` lists a user's notifications and — deliberately, like
+checking real email — marks everything currently unread as read the
+moment the page is viewed, rather than requiring a per-row click. The
+header gets an unread-count badge next to the new "Inbox" link,
+computed in the root layout alongside the existing session lookup.
+
+Verified against the live production database with a dedicated
+end-to-end script: created a fresh, never-responded-to test incident and
+drove it through take → escalate → reassign → comment → resolve → close,
+confirming the requester received exactly 4 notifications (first
+response, escalation, resolution, closure — correctly *not* re-notified
+on the second reassignment, since they'd already gotten a first-response
+notification) and the reassigned agent received exactly 2 (assignment,
+comment). Then checked the actual `/inbox` page and header badge via a
+minted session cookie: badge showed "2" before viewing, notifications
+rendered with a "New" indicator on first view, and both the badge and
+the "New" indicator correctly disappeared on a second visit after the
+first one had marked them read.
+
 ---
 
 *(Next stages get appended below as they're built.)*

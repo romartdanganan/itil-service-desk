@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { logout } from "@/src/actions/auth";
 import { ROLE_LABELS } from "@/src/types/itil";
@@ -28,6 +29,9 @@ export const metadata: Metadata = {
 // rendering, which is what makes "every request" true here too).
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const activeUser = await getActiveUser();
+  const unreadCount = activeUser
+    ? await prisma.notification.count({ where: { recipientId: activeUser.id, read: false } })
+    : 0;
 
   return (
     <html
@@ -52,6 +56,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             >
               Training
             </Link>
+            {activeUser && (
+              <Link
+                href="/inbox"
+                className="flex items-center gap-1.5 text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                Inbox
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
             {activeUser ? (
               <>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">

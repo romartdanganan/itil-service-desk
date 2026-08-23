@@ -21,6 +21,7 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Search & filter** — `/incidents` lets you search by text (ticket number, title, description) and filter by status/priority/category, still bounded by the same role visibility as the dashboard — an L1 agent searching can't surface a ticket they have no reason to see.
 - **Resolve vs. Close as separate steps** — Resolving records the fix; Closing is a separate confirmation (by the requester or a manager) that the fix actually held. A `RESOLVED` ticket can't be closed by just anyone, and the SLA-breach flag is calculated and permanently recorded the moment a ticket is resolved.
 - **Audit trail** — every status change, assignment, escalation, resolution, closure, and comment on an incident is recorded as an `IncidentActivity`, so a ticket's full history is visible on its detail page.
+- **Simulated email notifications** — `/inbox` is what the service desk would have emailed you in a real deployment (no real email is ever sent). An agent gets notified the moment a ticket is assigned to them; a customer gets notified the first time their ticket is picked up, if it's escalated, resolved, or closed on their behalf; comments notify whoever's on the other side of the conversation. Deliberately not spammy — a ticket bouncing between agents after an escalation only notifies the customer once, on the actual first response, not every hand-off.
 
 Problem Management and Change Management are intentionally out of scope for v1 — this project builds one ITIL process completely before expanding to others.
 
@@ -41,9 +42,10 @@ Problem Management and Change Management are intentionally out of scope for v1 �
 ```
 app/
   page.tsx                  # Home page — personal "my work" dashboard, role-scoped (requires sign-in)
-  layout.tsx                 # Root HTML layout, header shows signed-in user + sign out, or a sign-in link
+  layout.tsx                 # Root HTML layout, header shows signed-in user + sign out, unread inbox badge
   login/page.tsx              # Sign-in form + one-click "quick demo sign-in" for each seeded role
   signup/page.tsx              # Customer self-registration
+  inbox/page.tsx               # Simulated email notifications — viewing it marks everything read
   incidents/
     page.tsx                    # Search/browse every incident visible to your role, with filters
     new/page.tsx                 # "Log a new incident" form
@@ -52,7 +54,7 @@ app/
     page.tsx                     # Training Simulator home — every scenario + your score
     [id]/page.tsx                  # One "call": transcript, multiple-choice question, then the reveal
 prisma/
-  schema.prisma              # Database schema: User, Incident, IncidentActivity, Training* models + ITIL enums
+  schema.prisma              # Database schema: User, Incident, IncidentActivity, Notification, Training* models
   seed.ts                     # Demo data: one hashed-password user per role, sample incidents, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
@@ -61,11 +63,13 @@ src/
     session.ts                  # Signs/verifies the session JWT cookie -> current User
     password.ts                  # bcrypt hash/verify helpers
     demo-accounts.ts              # The shared password every seeded demo persona uses
+    notifications.ts              # Builds a Notification-create operation for use inside a $transaction
   actions/
     auth.ts                     # Server Actions: login, signup, quick demo sign-in, logout
     incidents.ts                 # Server Action: create a new incident (derives priority + SLA dates)
     incident-workflow.ts          # Server Actions for the rest of the lifecycle: take, reassign,
-                                    # escalate, hold/resume, resolve, close, comment
+                                    # escalate, hold/resume, resolve, close, comment — and the
+                                    # notifications each of those fires
     training.ts                   # Server Action: record a training attempt
   components/
     login-form.tsx                # Client Component — inline error display via useActionState

@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
-import { getNextTier, isAgentRole } from "@/src/types/itil";
+import { getNextTier, isAgentRole, ROLE_LABELS } from "@/src/types/itil";
 import { Role } from "@/app/generated/prisma/client";
+import { buildNotification } from "@/src/lib/notifications";
 
 // Every action below follows the same shape: load who's acting, load the
 // incident they're acting on, check the ITIL rule for "is this person
@@ -80,6 +81,8 @@ export async function takeIncident(formData: FormData) {
   }
 
   const incident = await loadIncident(incidentId);
+  const responseFields = firstResponseFields(incident);
+  const isFirstResponse = "respondedAt" in responseFields;
 
   await prisma.$transaction([
     prisma.incident.update({
@@ -88,7 +91,7 @@ export async function takeIncident(formData: FormData) {
         assigneeId: activeUser.id,
         currentTier: activeUser.role,
         status: "IN_PROGRESS",
-        ...firstResponseFields(incident),
+        ...responseFields,
       },
     }),
     prisma.incidentActivity.create({
@@ -99,6 +102,19 @@ export async function takeIncident(formData: FormData) {
         message: `${activeUser.name} took this ticket and started work.`,
       },
     }),
+    // Only on the ticket's actual first response — a requester doesn't
+    // need an email every time a ticket bounces between agents on a
+    // re-take after escalation, only the moment someone first picks it up.
+    ...(isFirstResponse
+      ? [
+          buildNotification({
+            recipientId: incident.requesterId,
+            incidentId,
+            subject: `We're on it: ${incident.ticketNumber} — ${incident.title}`,
+            body: `${activeUser.name} (${ROLE_LABELS[activeUser.role]}) is now working on your ticket.`,
+          }),
+        ]
+      : []),
   ]);
 
   revalidateIncident(incidentId);
@@ -128,6 +144,8 @@ export async function reassignIncident(formData: FormData) {
   }
 
   const incident = await loadIncident(incidentId);
+  const responseFields = firstResponseFields(incident);
+  const isFirstResponse = "respondedAt" in responseFields;
 
   await prisma.$transaction([
     prisma.incident.update({
@@ -136,7 +154,7 @@ export async function reassignIncident(formData: FormData) {
         assigneeId: newAssignee.id,
         currentTier: newAssignee.role,
         status: "IN_PROGRESS",
-        ...firstResponseFields(incident),
+        ...responseFields,
       },
     }),
     prisma.incidentActivity.create({
@@ -147,6 +165,22 @@ export async function reassignIncident(formData: FormData) {
         message: `${activeUser.name} reassigned this ticket to ${newAssignee.name}.`,
       },
     }),
+    buildNotification({
+      recipientId: newAssignee.id,
+      incidentId,
+      subject: `Assigned to you: ${incident.ticketNumber} — ${incident.title}`,
+      body: `${activeUser.name} assigned this ticket to you.`,
+    }),
+    ...(isFirstResponse
+      ? [
+          buildNotification({
+            recipientId: incident.requesterId,
+            incidentId,
+            subject: `We're on it: ${incident.ticketNumber} — ${incident.title}`,
+            body: `${newAssignee.name} (${ROLE_LABELS[newAssignee.role]}) is now working on your ticket.`,
+          }),
+        ]
+      : []),
   ]);
 
   revalidateIncident(incidentId);
@@ -201,6 +235,12 @@ export async function escalateIncident(formData: FormData) {
         type: "ESCALATED",
         message: `${activeUser.name} escalated this ticket to ${nextTier}. Reason: ${reason.trim()}`,
       },
+    }),
+    buildNotification({
+      recipientId: incident.requesterId,
+      incidentId,
+      subject: `Your ticket was escalated: ${incident.ticketNumber} — ${incident.title}`,
+      body: `Your ticket has been escalated to ${ROLE_LABELS[nextTier]} for further help.`,
     }),
   ]);
 
@@ -291,6 +331,12 @@ export async function resolveIncident(formData: FormData) {
         message: `${activeUser.name} resolved this ticket.${slaResolveBreached ? " (SLA breached)" : " (within SLA)"}`,
       },
     }),
+    buildNotification({
+      recipientId: incident.requesterId,
+      incidentId,
+      subject: `Resolved: ${incident.ticketNumber} — ${incident.title}`,
+      body: `${activeUser.name} resolved your ticket. ${resolutionNotes.trim()}`,
+    }),
   ]);
 
   revalidateIncident(incidentId);
@@ -330,6 +376,18 @@ export async function closeIncident(formData: FormData) {
         message: `${activeUser.name} confirmed the fix and closed this ticket.`,
       },
     }),
+    // Only notify if someone closed this on the requester's behalf — if
+    // they closed it themselves, they obviously already know.
+    ...(activeUser.id !== incident.requesterId
+      ? [
+          buildNotification({
+            recipientId: incident.requesterId,
+            incidentId,
+            subject: `Closed: ${incident.ticketNumber} — ${incident.title}`,
+            body: `${activeUser.name} closed this ticket on your behalf.`,
+          }),
+        ]
+      : []),
   ]);
 
   revalidateIncident(incidentId);
@@ -345,14 +403,37 @@ export async function addComment(formData: FormData) {
     throw new Error("Comment message is required.");
   }
 
-  await prisma.incidentActivity.create({
-    data: {
-      incidentId,
-      actorId: activeUser.id,
-      type: "COMMENT",
-      message: message.trim(),
-    },
-  });
+  const incident = await loadIncident(incidentId);
+
+  // Notify "the other party" — whoever didn't write this comment. A
+  // customer commenting should ping the assignee (if the ticket has one
+  // yet); an agent or manager commenting should ping the requester. This
+  // deliberately never notifies the comment's own author, and never
+  // notifies a ticket with no assignee yet on a customer comment — there's
+  // no one on the other side to tell.
+  const otherPartyId =
+    activeUser.id === incident.requesterId ? incident.assigneeId : incident.requesterId;
+
+  await prisma.$transaction([
+    prisma.incidentActivity.create({
+      data: {
+        incidentId,
+        actorId: activeUser.id,
+        type: "COMMENT",
+        message: message.trim(),
+      },
+    }),
+    ...(otherPartyId && otherPartyId !== activeUser.id
+      ? [
+          buildNotification({
+            recipientId: otherPartyId,
+            incidentId,
+            subject: `New comment on ${incident.ticketNumber} — ${incident.title}`,
+            body: `${activeUser.name}: ${message.trim()}`,
+          }),
+        ]
+      : []),
+  ]);
 
   revalidateIncident(incidentId);
 }
