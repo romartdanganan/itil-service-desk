@@ -625,6 +625,45 @@ rendered with a "New" indicator on first view, and both the badge and
 the "New" indicator correctly disappeared on a second visit after the
 first one had marked them read.
 
+## Stage 22 — Doubling the Training Simulator's content
+
+6 more scenarios (12 total), added specifically to round out gaps in the
+existing set: no `OTHER`-category scenario existed at all, and
+`INTERMEDIATE`/`ADVANCED` difficulty was thin outside Network. Each new
+one teaches a distinct lesson the first 6 didn't already cover:
+
+- **Isolate before diagnosing** (a spreadsheet that "won't open" — test
+  the known-good copy on the suspect machine before concluding the file
+  itself is corrupted).
+- **Gather evidence before acting** (a laptop shutting down under load —
+  check thermal/power logs before swapping a battery based on the
+  general pattern rather than this caller's specific symptoms).
+- **Proper process resists urgency, not just requests** (a new hire
+  asking for finance-drive access directly, manager conveniently
+  unavailable — route through actual approval regardless of how
+  reasonable the ask sounds, since that's exactly the pressure a real
+  unauthorized-access attempt would also use).
+- **Recovery over disabling security** (a lost authenticator app —
+  recovery codes and re-enrollment, not turning off two-factor to solve
+  one login).
+- **Authority pressure doesn't override policy** (a VP demanding a
+  same-day admin-rights exception) — the strongest scenario of the
+  batch: neither blind compliance nor a flat unhelpful refusal is
+  correct, the right answer is solving the *underlying* business need
+  through a compliant path.
+- **Turn a vague complaint into a diagnosable one** ("my computer is
+  being weird") — the first real skill in triage is asking narrowing
+  questions before anything can be checked or fixed at all.
+
+Inserted directly into the live production database (the same
+`insert-only-if-title-missing` pattern used for the original 6, since
+`prisma db seed` only runs against an empty table and re-running it
+would collide on the existing users' unique emails). Verified via the
+running app: the training list correctly shows "12" total and the new
+`OTHER` category label, and the VP scenario's choices were confirmed to
+preserve their authored order (correct answer first, as written) both
+directly against the database and through the actual rendered page.
+
 ---
 
 *(Next stages get appended below as they're built.)*
