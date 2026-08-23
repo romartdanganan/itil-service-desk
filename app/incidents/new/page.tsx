@@ -35,8 +35,15 @@ export default async function NewIncidentPage() {
           filling this out is you reporting a real problem to IT, the same
           way any employee would. You don&apos;t pick a priority yourself
           (that gets calculated automatically from Impact and Urgency
-          below); once submitted, switch to an agent role to see how IT
-          actually handles what you just reported.
+          below). After you submit, you&apos;ll land directly on your new
+          ticket&apos;s page — that&apos;s where to find it, both right
+          now and later (it&apos;ll also show up on your dashboard under
+          &quot;Open&quot;). There&apos;s no separate admin or developer
+          page in this app — every ticket lives in the same place,
+          filtered by whichever role you&apos;re signed in as. To see
+          literally everything at once, sign in as the{" "}
+          <strong>Manager</strong> and use <strong>Search</strong> in the
+          header.
         </p>
       </div>
 

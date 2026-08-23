@@ -61,10 +61,13 @@ function Badge({
 
 export default async function IncidentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string }>;
 }) {
   const { id } = await params;
+  const { created } = await searchParams;
 
   const [incident, activeUser, agents] = await Promise.all([
     prisma.incident.findUnique({
@@ -108,6 +111,22 @@ export default async function IncidentDetailPage({
         <Link href="/" className="text-sm text-zinc-500 underline dark:text-zinc-400">
           ← Back to all incidents
         </Link>
+
+        {created && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
+            <p className="font-semibold text-emerald-900 dark:text-emerald-300">
+              ✓ Logged as {incident.ticketNumber}
+            </p>
+            <p className="mt-1 text-emerald-800 dark:text-emerald-400">
+              This is your new ticket — bookmark this page, or find it
+              again later on your dashboard under &quot;Open&quot;. It
+              starts in the L1 (first-line) queue; an agent hasn&apos;t
+              picked it up yet, so nothing else happens here until they
+              do (or you switch to an agent role and take it yourself, to
+              see the other side of the workflow).
+            </p>
+          </div>
+        )}
 
         <div className="rounded-lg border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-2">

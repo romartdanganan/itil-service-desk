@@ -79,5 +79,10 @@ export async function createIncident(formData: FormData) {
     },
   });
 
-  redirect("/");
+  // Straight to the new ticket's own page, not back to the dashboard —
+  // landing on a list you'd have to search through for the thing you
+  // just created is exactly what made "where did my incident go" a real
+  // point of confusion. This way, the answer to "where do I find it" is
+  // just "you're looking at it."
+  redirect(`/incidents/${incident.id}?created=1`);
 }

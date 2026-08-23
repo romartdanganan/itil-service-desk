@@ -783,6 +783,40 @@ just walked through, same for Casey (L3) and Jordan (L1), and the
 manager's view correctly showed the full open-incident total across all
 of it.
 
+## Stage 25 — Closing the loop: "where did my incident go?"
+
+Stage 24's explainer text apparently wasn't enough — the very next round
+of feedback was "I don't understand the purpose of logging a new
+incident, where do I find these logged incidents, is there some sort of
+developer page I have to access." That's a stronger signal than a wording
+gap: *text explaining the feature* wasn't a substitute for the feature
+*showing its own result*.
+
+Root cause: submitting "Log New Incident" redirected back to the
+dashboard — a list you'd have to spot your new ticket inside (or not see
+at all, depending on what your current role's dashboard is scoped to
+show). The fix is structural, not more explanation: `createIncident()`
+now redirects straight to `/incidents/[id]?created=1` — the ticket you
+just made, not a list to search through. The `created` param triggers a
+one-time green banner ("✓ Logged as INC000123 — this is your new
+ticket...") explaining in the moment that it starts in the L1 queue and
+won't move until an agent picks it up (or you switch roles and take it
+yourself) — and doesn't reappear on a later, ordinary visit to the same
+page.
+
+Also answered the "developer page" question directly in the "Log New
+Incident" page's own explainer: there isn't a separate admin view in
+this app — every ticket lives in the same data, filtered by whichever
+role is signed in, and the closest thing to "see everything" is signing
+in as the Manager and using the existing `/incidents` Search page.
+
+Verified by creating a real test ticket (same logic `createIncident`
+uses) and fetching its detail page with and without `?created=1` — the
+banner rendered with the correct ticket number in the first case and was
+completely absent in the second, confirming it's genuinely a one-time
+"you just did this" moment, not a permanent fixture that would get
+confusing on every later visit.
+
 ---
 
 *(Next stages get appended below as they're built.)*
