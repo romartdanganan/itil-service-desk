@@ -20,6 +20,18 @@ model User {
   email String @unique
   role  Role   @default(CUSTOMER)
 
+  // Never a plaintext password — only ever the bcrypt hash. See
+  // src/lib/password.ts. Real accounts only: there is no "guest" concept,
+  // every User row is someone who signed up or was provisioned.
+  passwordHash String
+
+  // True only for the handful of seeded personas (one per role) used by
+  // the "quick demo sign-in" buttons on the login page. This is what
+  // keeps that feature from ever listing a real customer's account —
+  // self-registered users are never marked true, so quick sign-in can
+  // only ever offer accounts nobody outside this repo's seed data owns.
+  isDemoAccount Boolean @default(false)
+
   // Incidents this user raised (they are the "customer" on the ticket).
   reportedIncidents Incident[] @relation("Requester")
   // Incidents currently assigned to this user for work (they are the "agent").

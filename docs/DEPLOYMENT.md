@@ -103,7 +103,13 @@ handles auth through the browser:
    `DATABASE_URL` with the same Prisma Postgres connection string from
    Stage D1 (production, preview, and development environments can all
    point at the same database for a solo portfolio project — a team
-   project would want separate databases per environment).
+   project would want separate databases per environment), and add
+   `SESSION_SECRET` — generate it fresh with `openssl rand -base64 32`
+   **run locally and pasted directly into Vercel's dashboard**, not the
+   same value as local dev's `.env`. This is what signs every session
+   cookie; without it set, login and signup fail immediately (anonymous
+   browsing/redirects to `/login` still work, since those never need to
+   sign anything).
 3. Deploy. Vercel runs `npm install` (which triggers the `postinstall`
    → `prisma generate` step from Stage D2), then `next build`.
 4. Every future push to `main` auto-deploys — no separate deploy step

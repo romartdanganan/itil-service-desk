@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { CATEGORY_LABELS, PRIORITY_LABELS } from "@/src/types/itil";
@@ -31,16 +32,18 @@ export default async function SearchIncidentsPage({
   const categoryFilter = firstValue(params.category) ?? "";
 
   const activeUser = await getActiveUser();
+  if (!activeUser) {
+    redirect("/login");
+  }
 
   // Same visibility rule as the home page dashboard, just expressed as a
   // Prisma WHERE clause instead of separate queries: a customer only ever
   // sees their own reports, an agent sees what they've claimed plus their
-  // tier's queue, a manager sees everything, and nobody logged in sees
-  // everything too (there's no real auth in v1 — see docs/BUILD_LOG.md).
+  // tier's queue, a manager sees everything.
   let visibilityWhere: Prisma.IncidentWhereInput = {};
-  if (activeUser?.role === Role.CUSTOMER) {
+  if (activeUser.role === Role.CUSTOMER) {
     visibilityWhere = { requesterId: activeUser.id };
-  } else if (activeUser && activeUser.role !== Role.MANAGER) {
+  } else if (activeUser.role !== Role.MANAGER) {
     visibilityWhere = {
       OR: [
         { assigneeId: activeUser.id },

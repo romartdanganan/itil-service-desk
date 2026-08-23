@@ -476,6 +476,95 @@ by polling `/training` until it flipped from `404` to `200`). Fetched the
 live `/training` page afterward and confirmed all 6 scenarios list
 correctly against the production database, not just the local one.
 
+## Stage 20 — Real authentication, replacing the role-switcher
+
+The single most-repeated "known gap" across every doc up to this point:
+the cookie-based role switcher wasn't authentication, it was a demo
+convenience — anyone could edit that cookie in devtools and become any
+user. Asked to close that gap, plus told the app should keep "simulating
+how it is to be an IT" realistically.
+
+**Decision: hand-rolled auth over a library.** This Next.js version has
+real breaking changes from what most training data assumes (see
+`AGENTS.md` at the repo root) — `middleware.js` doesn't exist anymore,
+it's `proxy.js`, confirmed by actually reading
+`node_modules/next/dist/docs/` before writing anything, the same
+discipline that caught the Prisma driver-adapter surprise back in Stage
+3. Rather than add a third-party auth library with its own
+compatibility assumptions on top of an already-unusual Next.js version,
+this follows the pattern Next.js's own official docs recommend for this
+exact case: a stateless session — a JWT (via `jose`) holding just the
+user id, signed with a server-only secret, stored in an HttpOnly cookie
+— plus bcrypt-hashed passwords (`bcryptjs`, pure JS, no native build
+step, unlike the `better-sqlite3` binary that needed install-script
+approval back in Stage 3). It's also the more honest answer to "do you
+understand how auth works" than "I imported a library."
+
+**Compatibility-preserving refactor:** `getActiveUser()` in
+`src/lib/session.ts` keeps the exact same signature it always
+had — `Promise<User | null>` — just backed by a verified session
+instead of a plain cookie read. Every one of the ~15 call sites across
+every page and Server Action needed zero changes as a result; only
+`session.ts` itself changed internally.
+
+**Schema:** added `passwordHash` (required) and `isDemoAccount`
+(defaults false) to `User`. The first migration hit real production
+data: 5 existing seeded users needed real password hashes, and `prisma
+migrate dev` won't run non-interactively when a NOT NULL column addition
+needs a decision about existing rows (same class of issue as Stage 12's
+history rewrite, different cause). Solved the same way — a hand-written
+migration — computing the demo password's bcrypt hash up front and using
+it as a temporary column `DEFAULT` to backfill the 5 rows, then dropping
+the default so every future insert must supply its own hash explicitly.
+
+**Preserving the frictionless demo:** losing "instantly try any role"
+would have been a real regression for a portfolio project people are
+meant to click through quickly. The fix: real signup/login is fully
+functional, but the login page also lists the 5 seeded personas as
+one-click "quick demo sign-in" buttons — hidden form fields carrying
+that account's real email and the shared demo password, submitted
+through the *same* authentication path as a typed-in login, not a
+backdoor. `isDemoAccount` on `User` is what scopes this list to exactly
+those 5 seeded rows and never to a real self-registered customer's
+account, however many sign up over time.
+
+**Realistic role modeling:** self-registration (`/signup`) always
+creates a `CUSTOMER` account — there's no role field on the form to
+trust in the first place, matching how a real IT department provisions
+agent/manager accounts internally rather than letting anyone self-serve
+into one.
+
+**A real security habit, not just a feature:** the login error message
+is identical whether the email doesn't exist or the password is wrong
+("Invalid email or password.") — revealing which one it was is a genuine
+account-enumeration leak, not a UX nicety to skip for a portfolio
+project.
+
+**One deliberate, justified departure from "no client JS":** the login
+and signup forms are this app's first Client Components since the
+now-deleted role-switcher, using React's `useActionState` so a wrong
+password shows inline without a full page reload — copied directly from
+the pattern in Next.js's own authentication guide.
+
+**Access policy change:** every page that reads real ticket or training
+data now redirects to `/login` if nobody's signed in, replacing the old
+"show everything to anonymous visitors" fallback — a real service desk
+portal isn't publicly browsable, and with one-click demo sign-in this
+costs a visitor nothing but a single click.
+
+Verified end-to-end against the live production database: confirmed
+`bcrypt.compare` against all 5 backfilled password hashes, confirmed a
+wrong password is rejected, drove a real authenticated HTTP request by
+minting a session token with the same signing logic and setting it as a
+cookie via curl (proving `getActiveUser()`'s cookie-verification path
+works, not just the unit-level JWT logic) — the resulting page correctly
+rendered Jordan Lee's actual L1 dashboard. Confirmed a tampered cookie
+is rejected and treated as logged out, confirmed an anonymous request
+to `/` 307-redirects to `/login`, confirmed an authenticated request to
+`/login` redirects away to `/`, and confirmed self-registration always
+creates a `CUSTOMER` account with `isDemoAccount: false` regardless of
+any other field a crafted request might include.
+
 ---
 
 *(Next stages get appended below as they're built.)*

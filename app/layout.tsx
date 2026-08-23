@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
-import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
-import { RoleSwitcher } from "@/src/components/role-switcher";
+import { logout } from "@/src/actions/auth";
 import { ROLE_LABELS } from "@/src/types/itil";
 
 const geistSans = Geist({
@@ -24,14 +23,11 @@ export const metadata: Metadata = {
 
 // This layout is now `async` — layouts and pages are allowed to be async
 // functions in the App Router, and `await`-ing here is what lets us read
-// the database and the request's cookies before the HTML is built, on
-// every request (the root page below already opted the app into dynamic
+// the request's session cookie before the HTML is built, on every
+// request (the root page below already opted the app into dynamic
 // rendering, which is what makes "every request" true here too).
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [users, activeUser] = await Promise.all([
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
-    getActiveUser(),
-  ]);
+  const activeUser = await getActiveUser();
 
   return (
     <html
@@ -56,12 +52,28 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             >
               Training
             </Link>
-            {activeUser && (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {ROLE_LABELS[activeUser.role]}
-              </span>
+            {activeUser ? (
+              <>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {activeUser.name} — {ROLE_LABELS[activeUser.role]}
+                </span>
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+              >
+                Sign in
+              </Link>
             )}
-            <RoleSwitcher users={users} activeUserId={activeUser?.id ?? null} />
           </div>
         </header>
         {children}

@@ -8,11 +8,11 @@
 // have to write a migration just because the SLA policy changed.
 
 // Importing from "/client" (the full Prisma Client entry point) instead
-// of "/enums" here would drag Node-only code — and eventually the native
-// SQLite binding — into any browser bundle that imports this file, since
-// this file is imported by a Client Component (RoleSwitcher). "/enums" is
-// just plain `{ KEY: 'VALUE' }` objects with zero dependencies, so it's
-// safe on both the server and in the browser.
+// of "/enums" here would drag Node-only code — the native PostgreSQL
+// driver among it — into any browser bundle that ever imports this file.
+// Nothing currently does (there's no Client Component importing itil.ts
+// today), but "/enums" costs nothing and keeps this file safe to import
+// from a future Client Component without having to remember why.
 import {
   Impact,
   Urgency,

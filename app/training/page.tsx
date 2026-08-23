@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { CATEGORY_LABELS } from "@/src/types/itil";
@@ -13,33 +14,31 @@ export const dynamic = "force-dynamic";
 // visually separate matters so nobody mistakes a training call for an
 // actual incident.
 export default async function TrainingHomePage() {
-  const [scenarios, activeUser] = await Promise.all([
+  const activeUser = await getActiveUser();
+  if (!activeUser) {
+    redirect("/login");
+  }
+
+  const [scenarios, attempts] = await Promise.all([
     prisma.trainingScenario.findMany({
       orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
     }),
-    getActiveUser(),
-  ]);
-
-  const latestAttemptByScenario = new Map<
-    string,
-    { wasCorrect: boolean }
-  >();
-
-  if (activeUser) {
-    // Ordered newest-first, then only the first attempt seen per
-    // scenario is kept — that's the user's most recent try, which is
-    // what "have they resolved this yet" should reflect (see the
-    // TrainingAttempt schema comment on why every attempt is kept
-    // instead of just overwriting one row).
-    const attempts = await prisma.trainingAttempt.findMany({
+    // Ordered newest-first, then only the first attempt seen per scenario
+    // is kept below — that's the user's most recent try, which is what
+    // "have they resolved this yet" should reflect (see the
+    // TrainingAttempt schema comment on why every attempt is kept instead
+    // of just overwriting one row).
+    prisma.trainingAttempt.findMany({
       where: { userId: activeUser.id },
       orderBy: { createdAt: "desc" },
       select: { scenarioId: true, wasCorrect: true },
-    });
-    for (const attempt of attempts) {
-      if (!latestAttemptByScenario.has(attempt.scenarioId)) {
-        latestAttemptByScenario.set(attempt.scenarioId, attempt);
-      }
+    }),
+  ]);
+
+  const latestAttemptByScenario = new Map<string, { wasCorrect: boolean }>();
+  for (const attempt of attempts) {
+    if (!latestAttemptByScenario.has(attempt.scenarioId)) {
+      latestAttemptByScenario.set(attempt.scenarioId, attempt);
     }
   }
 
@@ -55,9 +54,7 @@ export default async function TrainingHomePage() {
             📞 Training Simulator
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {activeUser
-              ? `You've correctly resolved ${resolvedCount} of ${scenarios.length} calls.`
-              : "Pick a user from “Viewing as” above to track your progress."}
+            You&apos;ve correctly resolved {resolvedCount} of {scenarios.length} calls.
           </p>
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
             Practice calls come in like a real support line — read past the

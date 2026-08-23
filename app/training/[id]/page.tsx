@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { CATEGORY_LABELS } from "@/src/types/itil";
@@ -31,18 +31,7 @@ export default async function TrainingScenarioPage({
   }
 
   if (!activeUser) {
-    return (
-      <main className="mx-auto flex w-full max-w-lg flex-col gap-4 py-16 px-6">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Pick a user from &quot;Viewing as&quot; at the top of the page
-          before taking a training call — your attempts are tracked per
-          person.
-        </p>
-        <Link href="/training" className="text-sm underline">
-          Back to training
-        </Link>
-      </main>
-    );
+    redirect("/login");
   }
 
   const priorAttempts = await prisma.trainingAttempt.count({

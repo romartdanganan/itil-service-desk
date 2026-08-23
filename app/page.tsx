@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { ROLE_LABELS } from "@/src/types/itil";
@@ -33,26 +34,11 @@ const OPEN_STATUSES = ["NEW", "IN_PROGRESS", "ON_HOLD"] as const;
 export default async function Home() {
   const activeUser = await getActiveUser();
 
+  // Real ticket data — nobody gets to browse this signed out, the same
+  // way a real service desk portal isn't publicly readable. /login has
+  // one-click demo sign-in, so this costs a visitor nothing but a click.
   if (!activeUser) {
-    const incidents = await prisma.incident.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { assignee: true, requester: true },
-    });
-    return (
-      <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
-        <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
-          <PageHeader
-            title="ITIL Service Desk"
-            subtitle="Pick a user from &quot;Viewing as&quot; above to see a role-specific view. Showing every ticket in the meantime."
-          />
-          <IncidentGroup
-            title="All incidents"
-            emptyMessage="No incidents logged yet."
-            incidents={incidents}
-          />
-        </main>
-      </div>
-    );
+    redirect("/login");
   }
 
   if (activeUser.role === Role.CUSTOMER) {

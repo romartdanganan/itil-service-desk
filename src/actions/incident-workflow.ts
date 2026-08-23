@@ -18,7 +18,7 @@ import { Role } from "@/app/generated/prisma/client";
 async function requireActiveUser() {
   const activeUser = await getActiveUser();
   if (!activeUser) {
-    redirect("/");
+    redirect("/login");
   }
   return activeUser;
 }

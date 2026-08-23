@@ -9,10 +9,9 @@ import type { Impact, Urgency, IncidentCategory } from "@/app/generated/prisma/c
 export async function createIncident(formData: FormData) {
   const activeUser = await getActiveUser();
   if (!activeUser) {
-    // No one is "logged in" (no user picked in the role-switcher) — there
-    // is no one to record as the requester, so there is nothing safe to
-    // do but bounce back to the home page.
-    redirect("/");
+    // No signed-in session — there is no one to record as the requester,
+    // so there is nothing safe to do but send them to log in.
+    redirect("/login");
   }
 
   const title = formData.get("title");

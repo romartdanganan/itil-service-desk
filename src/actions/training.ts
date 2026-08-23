@@ -17,7 +17,7 @@ import { getActiveUser } from "@/src/lib/session";
 export async function submitTrainingAnswer(formData: FormData) {
   const activeUser = await getActiveUser();
   if (!activeUser) {
-    redirect("/");
+    redirect("/login");
   }
 
   const scenarioId = formData.get("scenarioId");

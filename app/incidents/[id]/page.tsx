@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import {
@@ -84,6 +84,9 @@ export default async function IncidentDetailPage({
 
   if (!incident) {
     notFound();
+  }
+  if (!activeUser) {
+    redirect("/login");
   }
 
   const now = new Date();

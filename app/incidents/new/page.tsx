@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getActiveUser } from "@/src/lib/session";
 import { createIncident } from "@/src/actions/incidents";
 import {
@@ -18,17 +18,7 @@ export default async function NewIncidentPage() {
   const activeUser = await getActiveUser();
 
   if (!activeUser) {
-    return (
-      <main className="mx-auto flex w-full max-w-lg flex-col gap-4 py-16 px-6">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Pick a user from &quot;Viewing as&quot; at the top of the page
-          before logging an incident — every ticket needs a requester.
-        </p>
-        <Link href="/" className="text-sm underline">
-          Back to incidents
-        </Link>
-      </main>
-    );
+    redirect("/login");
   }
 
   return (

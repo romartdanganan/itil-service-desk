@@ -3,6 +3,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { derivePriority, calculateSlaDueDates } from "../src/types/itil";
 import { TRAINING_SCENARIOS } from "../src/data/training-scenarios";
+import { hashPassword } from "../src/lib/password";
+import { DEMO_PASSWORD } from "../src/lib/demo-accounts";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -11,22 +13,55 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   // Seed data lets us build and demo the UI without manually clicking
   // through "create ticket" forms every time we restart the database.
-  // One user per role so the role-switcher has something to switch between.
+  // One user per role, each a real account (real password hash) marked
+  // `isDemoAccount: true` so the login page's "quick sign in" buttons can
+  // find exactly these five and no one else.
+  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
   const [customer, l1, l2, l3, manager] = await Promise.all([
     prisma.user.create({
-      data: { name: "Alex Rivera", email: "alex.rivera@example.com", role: "CUSTOMER" },
+      data: {
+        name: "Alex Rivera",
+        email: "alex.rivera@example.com",
+        role: "CUSTOMER",
+        passwordHash: demoPasswordHash,
+        isDemoAccount: true,
+      },
     }),
     prisma.user.create({
-      data: { name: "Jordan Lee", email: "jordan.lee@helpdesk.example.com", role: "AGENT_L1" },
+      data: {
+        name: "Jordan Lee",
+        email: "jordan.lee@helpdesk.example.com",
+        role: "AGENT_L1",
+        passwordHash: demoPasswordHash,
+        isDemoAccount: true,
+      },
     }),
     prisma.user.create({
-      data: { name: "Sam Patel", email: "sam.patel@helpdesk.example.com", role: "AGENT_L2" },
+      data: {
+        name: "Sam Patel",
+        email: "sam.patel@helpdesk.example.com",
+        role: "AGENT_L2",
+        passwordHash: demoPasswordHash,
+        isDemoAccount: true,
+      },
     }),
     prisma.user.create({
-      data: { name: "Casey Kim", email: "casey.kim@helpdesk.example.com", role: "AGENT_L3" },
+      data: {
+        name: "Casey Kim",
+        email: "casey.kim@helpdesk.example.com",
+        role: "AGENT_L3",
+        passwordHash: demoPasswordHash,
+        isDemoAccount: true,
+      },
     }),
     prisma.user.create({
-      data: { name: "Morgan Diaz", email: "morgan.diaz@helpdesk.example.com", role: "MANAGER" },
+      data: {
+        name: "Morgan Diaz",
+        email: "morgan.diaz@helpdesk.example.com",
+        role: "MANAGER",
+        passwordHash: demoPasswordHash,
+        isDemoAccount: true,
+      },
     }),
   ]);
 
