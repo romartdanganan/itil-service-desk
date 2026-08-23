@@ -43,6 +43,8 @@ model User {
   trainingAttempts  TrainingAttempt[]
   // This user's simulated inbox — see Notification below.
   notifications     Notification[]
+  // Every Shift (a queued batch of practice calls) this user has run.
+  shifts            Shift[]
 
   createdAt DateTime @default(now())
 }
@@ -293,5 +295,40 @@ model TrainingAttempt {
   // later edit to a scenario's correct answer doesn't rewrite history.
   wasCorrect Boolean
 
+  // Set only when this attempt happened as part of a Shift (see below),
+  // null for ordinary freeform practice from /training. What actually
+  // distinguishes a shift attempt isn't this link, though — it's that
+  // shift mode never lets you retry a call once answered, the same way a
+  // real shift doesn't let you rewind a call that already happened.
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+  shiftId String?
+
   createdAt DateTime @default(now())
+}
+
+// Shift Mode: several calls back-to-back, no retries mid-shift, ending in
+// a summary — the closer-to-a-real-job version of the Training Simulator,
+// versus freeform practice on one scenario at a time from /training.
+//
+// `scenarioIds` fixes the queue for the whole shift at creation time
+// (a Postgres native array, not a join table — the order matters and
+// never changes, so there's nothing a join table's extra structure would
+// buy here). Which call is "current" is never stored directly; it's
+// always derived as `scenarioIds[attempts.length]` — the same
+// derive-it-from-what-actually-happened approach used throughout this
+// app (e.g. an incident's SLA risk is computed at render time, not
+// cached) rather than a position counter that could drift out of sync
+// with the attempts actually recorded.
+model Shift {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  scenarioIds String[]
+  attempts    TrainingAttempt[]
+
+  startedAt   DateTime  @default(now())
+  // Set the moment the shift's last call gets an attempt — a null value
+  // is exactly how the summary page below knows whether to render "in
+  // progress" or "complete".
+  completedAt DateTime?
 }

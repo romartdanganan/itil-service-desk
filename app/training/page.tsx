@@ -4,6 +4,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { CATEGORY_LABELS } from "@/src/types/itil";
 import { TRAINING_DIFFICULTY_LABELS } from "@/src/data/training-scenarios";
+import { startShift } from "@/src/actions/shift";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,25 @@ export default async function TrainingHomePage() {
             actually resolved. Wrong answers are worth just as much as
             right ones: every choice explains why.
           </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+          <div>
+            <p className="text-sm font-semibold text-black dark:text-zinc-50">📋 Shift Mode</p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              5 calls back-to-back, no retries once you answer — the
+              closest this gets to an actual shift, not just picking a
+              scenario at a time.
+            </p>
+          </div>
+          <form action={startShift}>
+            <button
+              type="submit"
+              className="shrink-0 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+            >
+              Start a shift
+            </button>
+          </form>
         </div>
 
         <ul className="flex flex-col gap-3">

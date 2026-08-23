@@ -664,6 +664,57 @@ running app: the training list correctly shows "12" total and the new
 preserve their authored order (correct answer first, as written) both
 directly against the database and through the actual rendered page.
 
+## Stage 23 — Shift Mode
+
+A previously-floated idea, built now: `/training` lets you pick one
+scenario at a time and retry freely, which is great for learning but
+nothing like an actual shift, where a call happens once and you don't
+get to rewind it. Shift Mode queues 5 calls back-to-back and removes the
+retry safety net mid-shift — closer to the real pressure the app is
+meant to simulate.
+
+**Schema:** a new `Shift` model — `scenarioIds` is a native Postgres
+`String[]`, not a join table, because the queue's order is fixed at
+creation and never changes, so a join table's extra structure wouldn't
+buy anything. `TrainingAttempt` gets an optional `shiftId` back-reference.
+The genuinely interesting design point: **which call is "current" is
+never stored as a position counter** — it's always derived as
+`scenarioIds[attempts.length]`, the same "derive it from what actually
+happened rather than caching a value that could drift" instinct already
+used for SLA risk elsewhere in this app. This does double duty as the
+anti-replay guard too: `submitShiftAnswer` rejects any submission whose
+`scenarioId` isn't exactly the one at that derived position, which is
+what makes "no retries mid-shift" actually enforced server-side rather
+than just a UI convention nothing stops someone from working around.
+
+**Refactor:** extracted the call-transcript/question/reveal UI, shared
+between freeform practice and Shift Mode, into
+`src/components/training-call.tsx` — the two pages now render the exact
+same core with different Server Actions and different post-reveal
+navigation, rather than maintaining two copies that would drift apart.
+
+**A UI subtlety worth documenting:** right after answering a call, the
+redirect lands on `/shift/[id]?answered=<choiceId>`. By that point
+`attempts.length` has already advanced past the just-answered call — so
+naively deriving "current call" from it would jump straight to the next
+call's blank form instead of showing the reveal for the one just
+answered. The page special-cases the `answered` query param to render
+the *last recorded* attempt's reveal instead, and only falls through to
+"derive the current call normally" once that param is gone (i.e. after
+clicking "Next call").
+
+Verified against the live production database: ran a full 5-call shift
+through the actual action logic (alternating correct/incorrect answers),
+confirmed the shift marked itself complete with exactly the right
+attempt count and score, and confirmed the derived "next expected
+scenario" correctly becomes `undefined` once finished — proving a
+post-completion retry attempt would be rejected. Checked the real pages
+too: a fresh shift's `/shift/[id]` correctly showed "Call 1 of 5" with a
+blank form, the completed shift's summary correctly showed "3 of 5
+correct" with alternating Correct/Incorrect badges matching the actual
+answers given, and — the ownership check — a second user's session
+cookie got a `404` trying to view someone else's shift.
+
 ---
 
 *(Next stages get appended below as they're built.)*

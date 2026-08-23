@@ -29,6 +29,8 @@ Problem Management and Change Management are intentionally out of scope for v1 �
 
 `/training` is a practice mode, separate from the real ticket queue: a "call" comes in — written the way a real caller actually talks, including some vagueness on purpose — you pick your first diagnostic step from a set of multiple-choice options, and immediately see whether that choice was right (with an explanation either way) followed by how the issue was actually resolved. Attempts are tracked per user (retrying is expected — the goal is getting it right eventually, not on the first try), so `/training` also shows a running score. 12 scenarios across every incident category (Network, Software, Hardware, Access, Account, Other) and all three difficulty levels, each teaching a distinct triage or security-awareness lesson — including one about pushing back on a senior executive pressuring for a policy exception, and one about recovering a lost authenticator instead of just disabling two-factor auth. See `prisma/schema.prisma` (`TrainingScenario` / `TrainingChoice` / `TrainingAttempt`) and `src/data/training-scenarios.ts` for the content.
 
+**Shift Mode** (`/shift/[id]`) is the closer-to-an-actual-job version: start a shift from `/training` and get 5 calls queued back-to-back, with **no retries once you answer** — a real shift doesn't let you rewind a call that already happened, and that one-shot pressure is the whole point versus freeform practice. Ends in a summary (score, time taken, a per-call breakdown linking back to each scenario to review afterward). See `Shift` in `prisma/schema.prisma`.
+
 ## Tech Stack
 
 - **Framework:** Next.js (App Router) + React Server Components
@@ -51,10 +53,12 @@ app/
     new/page.tsx                 # "Log a new incident" form
     [id]/page.tsx                 # Ticket detail page — SLA panel, role-gated action forms, activity timeline
   training/
-    page.tsx                     # Training Simulator home — every scenario + your score
+    page.tsx                     # Training Simulator home — every scenario + your score + "Start a shift"
     [id]/page.tsx                  # One "call": transcript, multiple-choice question, then the reveal
+  shift/
+    [id]/page.tsx                  # Shift Mode: 5 calls back-to-back, no retries, ends in a summary
 prisma/
-  schema.prisma              # Database schema: User, Incident, IncidentActivity, Notification, Training* models
+  schema.prisma              # Database schema: User, Incident, IncidentActivity, Notification, Shift, Training* models
   seed.ts                     # Demo data: one hashed-password user per role, sample incidents, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
@@ -70,11 +74,13 @@ src/
     incident-workflow.ts          # Server Actions for the rest of the lifecycle: take, reassign,
                                     # escalate, hold/resume, resolve, close, comment — and the
                                     # notifications each of those fires
-    training.ts                   # Server Action: record a training attempt
+    training.ts                   # Server Action: record a freeform training attempt
+    shift.ts                      # Server Actions: start a shift, answer the current call in one
   components/
     login-form.tsx                # Client Component — inline error display via useActionState
     signup-form.tsx                # Same pattern, for self-registration
     incident-list.tsx               # Shared ticket-list rendering (used by the dashboard and search page)
+    training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
   data/
     training-scenarios.ts          # Training Simulator content — call transcripts, choices, resolutions
   types/itil.ts                    # ITIL business rules: impact/urgency -> priority matrix, SLA targets,
