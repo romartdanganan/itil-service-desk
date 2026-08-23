@@ -715,6 +715,74 @@ correct" with alternating Correct/Incorrect badges matching the actual
 answers given, and — the ownership check — a second user's session
 cookie got a `404` trying to view someone else's shift.
 
+## Stage 24 — Fixing a real usability problem: an empty, unexplained app
+
+Direct, important feedback: logging in as Sam Patel (L2) showed no
+tickets and no explanation of what to do, and separately, the term
+"Knowledge Base" got asked about with "is that kubernetes?" — a concrete
+sign the accumulated ITSM vocabulary in this project's docs had outpaced
+what's actually been explained *in the product itself*. Everything
+mentor-style built up so far lived in `BUILD_LOG.md`, code comments, and
+chat — none of which a person actually using the live app as a practice
+tool ever sees.
+
+Two root causes, both fixed:
+
+**1. The app had almost no ongoing content.** Tickets only ever appeared
+if a human manually filled out "Log New Incident" as a customer — there
+was no mechanism simulating the steady stream of new problems a real IT
+job actually has. Investigating the live database confirmed this
+directly: several tickets titled literally `"asd"` (clearly
+form-testing, not real practice content), and every other real ticket
+sitting unassigned in the **L1** queue specifically — which is *correct*
+ITIL behavior (every new ticket starts at L1), but meant an L2 or L3
+agent logging in found a genuinely empty dashboard, because nothing had
+ever been escalated up to them.
+
+Fixed with a content bank + generator, the same pattern as the Training
+Simulator's scenarios: `src/data/incident-templates.ts` (18 realistic
+tickets across every category/impact/urgency combination) and
+`src/data/npc-employees.ts` (6 fictional employees across departments,
+real `User` rows so `requesterId` has something to point at, but never
+marked `isDemoAccount` — they don't show up in quick sign-in, and their
+distinct `@acmeco.example` domain is what the generator uses to find
+exactly this pool and nothing else). `generateIncomingTickets()` in
+`src/actions/generate-tickets.ts` — agent/manager only — creates a fresh
+batch on demand, exposed as a **"🔄 Simulate new tickets arriving"**
+button on the agent and manager dashboards. A shared `shuffled()`
+Fisher-Yates helper (`src/lib/random.ts`) was extracted from Shift Mode's
+local copy for this, rather than duplicating it a second time.
+
+Cleaned up the `"asd"` test tickets on the live database, generated a
+fresh batch, then walked several of them through *real* take/escalate
+steps (using the actual workflow logic, not fake pre-set fields) so
+every seeded role has genuinely distinct, realistic work waiting: Jordan
+(L1) with an in-progress ticket plus a full queue, Sam (L2) with an
+assigned ticket and a queued escalation, Casey (L3) with a
+specialist-level ticket. Hit a real, separate bug doing this by hand:
+count-based ticket numbering (`INC` + row count) collided once rows had
+been deleted, creating a gap the count didn't account for — fixed by
+switching the one-off cleanup script to derive the next number from the
+actual max existing ticket number instead. (This isn't a live bug in the
+app itself — nothing in the real UI ever deletes a ticket — but worth
+noting as the kind of edge case count-based numbering is fragile to.)
+
+**2. The product didn't explain itself.** Added a plain-language
+`RoleExplainer` block to each dashboard view — customer, agent, manager
+— stating in one paragraph what that role is actually for and what to
+do next, with ITSM terms (SLA, escalate, tier) defined inline rather
+than assumed. Strengthened the "Log New Incident" page similarly: it
+now says outright that this represents the *customer's* side of the
+story, and that priority isn't picked directly, it's calculated from
+Impact/Urgency below.
+
+Verified end-to-end against the live production database and the actual
+rendered pages (not just the underlying data): fetched Sam's dashboard
+and confirmed "My tickets (1)" and "queue (1)" showed the exact tickets
+just walked through, same for Casey (L3) and Jordan (L1), and the
+manager's view correctly showed the full open-incident total across all
+of it.
+
 ---
 
 *(Next stages get appended below as they're built.)*

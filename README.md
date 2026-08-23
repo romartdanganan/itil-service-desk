@@ -22,6 +22,8 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Resolve vs. Close as separate steps** — Resolving records the fix; Closing is a separate confirmation (by the requester or a manager) that the fix actually held. A `RESOLVED` ticket can't be closed by just anyone, and the SLA-breach flag is calculated and permanently recorded the moment a ticket is resolved.
 - **Audit trail** — every status change, assignment, escalation, resolution, closure, and comment on an incident is recorded as an `IncidentActivity`, so a ticket's full history is visible on its detail page.
 - **Simulated email notifications** — `/inbox` is what the service desk would have emailed you in a real deployment (no real email is ever sent). An agent gets notified the moment a ticket is assigned to them; a customer gets notified the first time their ticket is picked up, if it's escalated, resolved, or closed on their behalf; comments notify whoever's on the other side of the conversation. Deliberately not spammy — a ticket bouncing between agents after an escalation only notifies the customer once, on the actual first response, not every hand-off.
+- **Simulated incoming tickets** — a real support queue never sits empty; without something refilling it, a practice queue does. Any agent or manager can click **"🔄 Simulate new tickets arriving"** to inject a fresh batch of realistic tickets (`src/data/incident-templates.ts`, 18 templates across every category), each attributed to one of a small pool of fictional employees (`src/data/npc-employees.ts`) rather than the same one repeated name. New tickets always start at the L1 tier — matching real ITIL, and matching how they'd need to actually be escalated up by hand to reach L2/L3, not pre-placed there.
+- **In-app guidance, not just docs** — each dashboard (customer, agent, manager) opens with a plain-language explanation of what that role is for and what to do next, with ITSM terms defined inline rather than assumed. The goal is that someone with zero prior ITSM vocabulary can open the app and understand what they're looking at without reading external documentation first.
 
 Problem Management and Change Management are intentionally out of scope for v1 — this project builds one ITIL process completely before expanding to others.
 
@@ -68,6 +70,7 @@ src/
     password.ts                  # bcrypt hash/verify helpers
     demo-accounts.ts              # The shared password every seeded demo persona uses
     notifications.ts              # Builds a Notification-create operation for use inside a $transaction
+    random.ts                     # Shared Fisher-Yates shuffle (Shift Mode + the ticket generator)
   actions/
     auth.ts                     # Server Actions: login, signup, quick demo sign-in, logout
     incidents.ts                 # Server Action: create a new incident (derives priority + SLA dates)
@@ -76,6 +79,7 @@ src/
                                     # notifications each of those fires
     training.ts                   # Server Action: record a freeform training attempt
     shift.ts                      # Server Actions: start a shift, answer the current call in one
+    generate-tickets.ts            # Server Action: simulate a fresh batch of incoming tickets
   components/
     login-form.tsx                # Client Component — inline error display via useActionState
     signup-form.tsx                # Same pattern, for self-registration
@@ -83,6 +87,8 @@ src/
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
   data/
     training-scenarios.ts          # Training Simulator content — call transcripts, choices, resolutions
+    incident-templates.ts           # "Incoming tickets" content bank — realistic titles/descriptions
+    npc-employees.ts                # Fictional employee pool generated tickets are attributed to
   types/itil.ts                    # ITIL business rules: impact/urgency -> priority matrix, SLA targets,
                                      # escalation-tier logic, role/label lookups
 ```

@@ -27,8 +27,16 @@ export default async function NewIncidentPage() {
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
           Log a New Incident
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Logging as {activeUser.name}.
+        </p>
+        <p className="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+          This is the <strong>customer&apos;s side</strong> of the story —
+          filling this out is you reporting a real problem to IT, the same
+          way any employee would. You don&apos;t pick a priority yourself
+          (that gets calculated automatically from Impact and Urgency
+          below); once submitted, switch to an agent role to see how IT
+          actually handles what you just reported.
         </p>
       </div>
 

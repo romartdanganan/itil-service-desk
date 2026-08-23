@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { derivePriority, calculateSlaDueDates } from "../src/types/itil";
 import { TRAINING_SCENARIOS } from "../src/data/training-scenarios";
+import { NPC_EMPLOYEES } from "../src/data/npc-employees";
 import { hashPassword } from "../src/lib/password";
 import { DEMO_PASSWORD } from "../src/lib/demo-accounts";
 
@@ -148,6 +149,21 @@ async function main() {
     });
   }
 
+  // NPC customer pool for the "simulate incoming tickets" generator —
+  // real accounts (nobody logs into them, but the requesterId foreign
+  // key needs a real User row), reusing the demo password hash since
+  // there's nothing sensitive to protect on an account nobody signs
+  // into and that never appears in the quick-sign-in list.
+  await prisma.user.createMany({
+    data: NPC_EMPLOYEES.map((employee) => ({
+      name: employee.name,
+      email: employee.email,
+      role: "CUSTOMER",
+      passwordHash: demoPasswordHash,
+      isDemoAccount: false,
+    })),
+  });
+
   for (const scenario of TRAINING_SCENARIOS) {
     await prisma.trainingScenario.create({
       data: {
@@ -171,7 +187,7 @@ async function main() {
   }
 
   console.log("Seed complete:", {
-    users: 5,
+    users: 5 + NPC_EMPLOYEES.length,
     incidents: samples.length,
     trainingScenarios: TRAINING_SCENARIOS.length,
   });

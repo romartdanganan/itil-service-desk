@@ -4,6 +4,37 @@ import { getActiveUser } from "@/src/lib/session";
 import { ROLE_LABELS } from "@/src/types/itil";
 import { Role } from "@/app/generated/prisma/client";
 import { IncidentGroup, PageHeader, isOpenStatus, isOverdue, isAtRisk } from "@/src/components/incident-list";
+import { generateIncomingTickets } from "@/src/actions/generate-tickets";
+
+// A short "what am I looking at, and what am I supposed to do" blurb per
+// role — the dashboard used to assume this was already understood, which
+// is exactly the kind of gap that makes a practice tool unusable for
+// someone actually trying to learn what the job looks like. Plain
+// language on purpose; no ITSM jargon without explaining it right here.
+function RoleExplainer({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+      {children}
+    </p>
+  );
+}
+
+// A real support queue never runs dry — new problems show up constantly.
+// This button is what keeps a practice queue from emptying out after a
+// few sessions and starting to feel pointless. See
+// src/actions/generate-tickets.ts and src/data/incident-templates.ts.
+function GenerateTicketsButton() {
+  return (
+    <form action={generateIncomingTickets}>
+      <button
+        type="submit"
+        className="rounded-full border border-black/10 px-4 py-1.5 text-sm font-medium dark:border-white/10"
+      >
+        🔄 Simulate new tickets arriving
+      </button>
+    </form>
+  );
+}
 
 // Without this, Next.js sees no dynamic input (no cookies, no searchParams)
 // on this page and assumes it's safe to pre-render once at build time and
@@ -51,6 +82,14 @@ export default async function Home() {
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
           <PageHeader title="ITIL Service Desk" subtitle={`Tickets you've reported, ${activeUser.name}.`} />
+          <RoleExplainer>
+            You&apos;re a <strong>customer</strong> in this simulation — think of
+            yourself as any employee at a company reporting a tech problem
+            to IT. Click <strong>&quot;Log New Incident&quot;</strong> above
+            to report something broken. Then check back here (or your{" "}
+            <strong>Inbox</strong>) to see IT work on it — get assigned, get
+            escalated if it&apos;s tricky, and eventually get fixed.
+          </RoleExplainer>
           <IncidentGroup
             title="Open"
             emptyMessage="Nothing open right now."
@@ -84,6 +123,17 @@ export default async function Home() {
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
           <PageHeader title="ITIL Service Desk" subtitle="Full visibility across every support tier." />
+          <RoleExplainer>
+            You&apos;re the <strong>manager</strong> — you can see every ticket
+            across every tier (agents only see their own). Use this to
+            watch for tickets at risk of missing their{" "}
+            <strong>SLA</strong> (the deadline IT promised to respond/fix
+            by), and reassign a ticket to a specific agent if the tier
+            queue isn&apos;t moving. Managers don&apos;t usually work
+            tickets hands-on — that&apos;s what the agent tiers below are
+            for.
+          </RoleExplainer>
+          <GenerateTicketsButton />
           <IncidentGroup
             title="⚠ SLA at risk"
             emptyMessage="Nothing breached or close to breaching its SLA right now."
@@ -127,6 +177,17 @@ export default async function Home() {
           title="ITIL Service Desk"
           subtitle={`Working as ${ROLE_LABELS[activeUser.role]} — ${activeUser.name}.`}
         />
+        <RoleExplainer>
+          You&apos;re an IT support agent — this is your actual workload.{" "}
+          <strong>&quot;My tickets&quot;</strong> is what you&apos;ve already
+          claimed; the <strong>queue</strong> below is unclaimed work
+          waiting for someone at your tier. Click a ticket to open it, then
+          use the buttons there to take it, resolve it once it&apos;s
+          fixed, or escalate it up a tier if it&apos;s beyond what you can
+          do. Nothing to work on? Use the button below to simulate new
+          tickets coming in.
+        </RoleExplainer>
+        <GenerateTicketsButton />
         <IncidentGroup
           title="My tickets"
           emptyMessage="Nothing assigned to you right now."

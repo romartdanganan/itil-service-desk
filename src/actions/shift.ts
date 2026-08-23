@@ -3,21 +3,9 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { shuffled } from "@/src/lib/random";
 
 const CALLS_PER_SHIFT = 5;
-
-function shuffled<T>(items: T[]): T[] {
-  // Fisher-Yates — a plain `.sort(() => Math.random() - 0.5)` is a classic
-  // near-miss here: it doesn't produce a uniform shuffle, some orderings
-  // come out more likely than others. Doesn't matter for a coin flip, but
-  // "which 5 practice calls you get" is worth actually getting right.
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
 
 /** Queue up a batch of calls and start a shift — the closer-to-a-real-job
  * mode, versus picking one scenario at a time from /training. */
