@@ -372,6 +372,13 @@ model TrainingScenario {
   // right/wrong verdict.
   resolutionSteps String
 
+  // A second, different skill from the multiple-choice question above:
+  // not "what would you do" but "how would you explain it to the caller."
+  // Nullable so a scenario can opt out, graded by an LLM (see
+  // WrittenResponse below) since judging whether an explanation is clear
+  // and complete isn't a keyword-matching problem.
+  writtenPrompt String?
+
   attempts  TrainingAttempt[]
   createdAt DateTime          @default(now())
 }
@@ -424,6 +431,35 @@ model TrainingAttempt {
   // real shift doesn't let you rewind a call that already happened.
   shift   Shift?  @relation(fields: [shiftId], references: [id])
   shiftId String?
+
+  // The written-response half of this same call, if the scenario has a
+  // writtenPrompt and the trainee completed it. A separate one-to-one
+  // model rather than columns on this row, on purpose: TrainingAttempt
+  // above is documented as never updated after creation, and grading
+  // happens moments after the multiple-choice answer is recorded, not
+  // as part of that same write.
+  writtenResponse WrittenResponse?
+
+  createdAt DateTime @default(now())
+}
+
+// One graded written answer, scored and given feedback by an LLM (see
+// src/lib/grade-written-answer.ts). Optional and one-to-one with a
+// TrainingAttempt: writing an explanation is never required to move on
+// to the next call, it's an enrichment of that same attempt, not a
+// separate pass/fail gate.
+model WrittenResponse {
+  id          String          @id @default(cuid())
+  attempt     TrainingAttempt @relation(fields: [attemptId], references: [id])
+  attemptId   String          @unique
+
+  answer String
+
+  // 1 to 5, plus the two things every real piece of feedback needs: what
+  // was good, and what to do differently next time.
+  score       Int
+  strengths   String
+  improvements String
 
   createdAt DateTime @default(now())
 }

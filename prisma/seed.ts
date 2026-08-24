@@ -174,6 +174,7 @@ async function main() {
         callerFollowUp: scenario.callerFollowUp,
         question: scenario.question,
         resolutionSteps: scenario.resolutionSteps,
+        writtenPrompt: scenario.writtenPrompt,
         choices: {
           create: scenario.choices.map((choice, index) => ({
             text: choice.text,

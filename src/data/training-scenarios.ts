@@ -29,6 +29,12 @@ export type TrainingScenarioSeed = {
   question: string;
   choices: { text: string; isCorrect: boolean; explanation: string }[];
   resolutionSteps: string;
+  // A second question, asked after the reveal: not "what would you do"
+  // but "how would you explain it to the caller." Optional, and graded
+  // by an LLM rather than matched against a fixed answer, since judging
+  // a written explanation for clarity and tone isn't something a fixed
+  // correct answer can capture. See WrittenResponse in schema.prisma.
+  writtenPrompt?: string;
 };
 
 export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
@@ -69,6 +75,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "The Wi-Fi radio had been toggled off on the laptop after a Windows update reset some settings. Re-enabled it in Network Settings — the laptop reconnected immediately. No further action needed.",
+    writtenPrompt:
+      "Write what you'd tell the caller once it's fixed. Keep it short, plain, and clear about what actually happened.",
   },
   {
     title: "Expense app crashes on open",
@@ -107,6 +115,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Confirmed via the team channel that a vendor update pushed overnight had broken the app for every user, not just this one. The vendor released a hotfix within the hour; had the caller apply it, and the app opened normally afterward.",
+    writtenPrompt:
+      "Write what you'd tell the caller right after you confirm it's a known, wider outage, not just their machine. They have a deadline today, so say what they should expect and by when.",
   },
   {
     title: "3rd floor printer stuck offline",
@@ -145,6 +155,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "The printer's Ethernet cable had come loose from the wall jack — likely knocked during cleaning. Reseated the cable, the printer came back online within a minute, and the queued print job went through automatically.",
+    writtenPrompt:
+      "Write what you'd tell the caller once it's fixed, including what actually caused it in plain language.",
   },
   {
     title: "Suddenly locked out of the team share",
@@ -183,6 +195,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "The caller had been removed from the 'Team-Share-ReadWrite' security group during a routine access review the day before. Re-added them to the correct group; access was restored automatically after their next sign-in.",
+    writtenPrompt:
+      "Write what you'd tell the caller once access is restored, explaining why it happened without making a routine access review sound alarming.",
   },
   {
     title: "Locked out after too many failed logins",
@@ -221,6 +235,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Verified the caller's identity through the standard callback/verification procedure. Unlocked the account and had them reset their password through the self-service portal, and suggested enabling the keyboard-layout indicator in the taskbar to avoid repeat typos.",
+    writtenPrompt:
+      "Write what you'd say to the caller to explain that you need to verify their identity before unlocking anything, without making it sound like you suspect them of anything.",
   },
   {
     title: "Whole floor's internet crawling",
@@ -259,6 +275,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Monitoring showed a core switch on that floor dropping packets after an automatic firmware update. Rolled the firmware back; connectivity returned to normal for everyone within about 10 minutes. Logged as a Problem afterward, to review why that switch was allowed to auto-update during business hours — a root-cause question, not just a one-off fix.",
+    writtenPrompt:
+      "Write a short message you'd send to the whole floor once it's fixed, explaining what happened and reassuring them it's resolved.",
   },
   {
     title: "Spreadsheet won't open, says it's corrupted",
@@ -297,6 +315,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "The working copy opened fine on the work PC too, ruling out a machine-wide Office problem. Checked the sync client and found it had been silently failing uploads for two days due to a expired auth token — the on-PC copy was a partially-written, incomplete sync, not a real corruption. Re-authenticated the sync client and re-uploaded from the known-good copy.",
+    writtenPrompt:
+      "Write what you'd tell the caller once it's fixed. Their file has months of work in it, so be clear and reassuring that nothing was actually lost, and explain what really happened in plain language.",
   },
   {
     title: "Laptop randomly shuts off during video calls",
@@ -335,6 +355,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Thermal logs showed the CPU hitting its critical temperature threshold right before each shutdown — the fan curve wasn't ramping up properly, likely dust-clogged intake vents. A compressed-air cleaning and a BIOS fan-curve update fixed it; no shutdowns since.",
+    writtenPrompt:
+      "Write what you'd tell the caller once you've diagnosed and fixed it, explaining the actual cause in terms someone without a technical background could follow.",
   },
   {
     title: "New hire needs access to the finance shared drive",
@@ -373,6 +395,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Sent the standard access-request confirmation to the requester's manager (Priya Shah) rather than granting on the caller's word alone. She approved it within the hour once out of meetings. Access was granted the same day — barely slower than granting it immediately, but through the process that actually exists to prevent unauthorized access.",
+    writtenPrompt:
+      "Write what you'd say to the new hire to explain why you can't just grant access right away, and what happens next, without making them feel distrusted on their first week.",
   },
   {
     title: "Authenticator app stopped generating codes",
@@ -411,6 +435,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Verified the caller's identity through the standard process, then used their account's recovery codes to get them back in, and walked them through re-enrolling the authenticator app on their new phone. Two-factor stayed enabled the entire time — the account was never left less protected than before the call.",
+    writtenPrompt:
+      "Write what you'd say to explain why you're not just turning off two-factor authentication like they asked, and what you're doing instead to get them logged in today.",
   },
   {
     title: "VP wants a policy exception, right now",
@@ -449,6 +475,8 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "Installed the specific software the caller actually needed directly, using an IT-held admin credential for that one installation, instead of granting the caller standing admin rights. The demo went ahead on time, and the underlying policy — no standing local admin rights without an approved exception — was never bypassed.",
+    writtenPrompt:
+      "Write exactly what you'd say to the VP, on this call, right now, to hold the line on policy while still solving their problem in time for the demo. Keep it professional, not defensive.",
   },
   {
     title: "\"My computer is being weird\"",
@@ -487,5 +515,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     ],
     resolutionSteps:
       "A few follow-up questions narrowed \"being weird\" down to: the caller's email client had been silently failing to send attachments over 10MB for the past two days. Once the actual symptom was clear, it was a two-minute fix — the client's attachment-size setting had reverted after an update.",
+    writtenPrompt:
+      "Write the actual questions you'd ask the caller to turn \"being weird\" into something you can actually diagnose.",
   },
 ];

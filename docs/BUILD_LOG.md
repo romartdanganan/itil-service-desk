@@ -906,4 +906,87 @@ seed data was left exactly as it was found.
 
 ---
 
+## Stage 27: Graded written-response training exercises
+
+The original goal for this whole project, going back to the very first
+conversation about what to build, was practice for a real IT job with
+some exercises graded by multiple choice and some graded on actual
+writing, with tips. Multiple choice existed. Graded writing never got
+built. This stage closed that gap.
+
+Judging whether a written explanation is clear, accurate, and
+appropriately toned is not a job for keyword matching, it is a real
+judgment call, so this uses an LLM to grade instead of a rubric of
+required phrases. The model is Google's Gemini API rather than Claude
+or OpenAI, specifically because Gemini's API has a genuinely free tier
+with no credit card required, which mattered a lot here: a portfolio
+project meant to be cloned and run by anyone should not require the
+next person to pay for an API just to see every feature work. Called
+directly over `fetch`, no SDK, so the entire integration is one
+readable HTTP call in `src/lib/grade-written-answer.ts` rather than an
+abstraction layer to learn.
+
+**Where it fits:** added as a second step after each call's existing
+multiple-choice question, not a parallel content track. The
+multiple-choice question tests "what would you do first" (a process
+question); the new step asks "how would you explain it to the caller"
+(a communication question), using the same 12 scenarios already
+written rather than doubling the content-authoring work. Each scenario
+got its own `writtenPrompt`, written to match that scenario's specific
+lesson rather than reusing one generic prompt everywhere, for example
+the VP-pressuring-for-a-policy-exception scenario asks the trainee to
+write exactly what they would say to hold the line professionally,
+while the vague "my computer is being weird" scenario asks for the
+actual clarifying questions that would turn that into a real ticket.
+
+**Schema:** a new `WrittenResponse` model, one to one with
+`TrainingAttempt` via a unique `attemptId`, rather than new columns on
+`TrainingAttempt` itself. `TrainingAttempt` is documented as
+append-only, never updated after creation, and grading happens moments
+after the multiple-choice answer is recorded, not as part of that same
+write, so a separate table keeps that invariant true rather than
+quietly breaking it. `TrainingScenario` got one new nullable field,
+`writtenPrompt`, nullable so a scenario can opt out (none currently
+do, but nothing requires every future scenario to have one).
+
+**Grading is optional, not a gate.** "Next call" is available whether
+or not the written step gets completed, matching the app's existing
+low-friction tone everywhere else, retrying or skipping is never
+punished. It is also scoped to freeform practice only, not Shift Mode,
+since Shift Mode's whole identity is fast, one-shot triage under
+pressure and a graded writing exercise is a different kind of task
+worth keeping separate for now.
+
+**A real bug the live API caught immediately:** the model originally
+picked, `gemini-2.5-flash`, returned a 404 the moment this was tested
+against a real key, `models/gemini-2.5-flash is no longer available to
+new users`. Listing available models against the actual key showed it
+still exists in the catalog but genuinely is not callable for a new
+account, an easy trap for anyone copying an older tutorial. Switched to
+`gemini-3.6-flash`, the exact model the error message pointed at, and
+confirmed it works.
+
+Setting up the API key itself was new ground: walked through getting a
+free key from Google AI Studio and adding it to `.env` as
+`GEMINI_API_KEY`, documented in `.env.example` the same way
+`DATABASE_URL` and `SESSION_SECRET` already are, but explicitly called
+out as optional, every other part of the app runs fine without it, only
+written-response grading needs it.
+
+Verified against the live database with a real browser: answered a
+call's multiple-choice question, confirmed the written prompt appeared
+right after, submitted a deliberately lazy, lowercase, non-answer
+("idk its broken, i pressed some buttons and it still doesnt work, can
+u just fix it") and got back a 1 out of 5 with a specific, accurate
+critique, not a generic "try harder." Retried the same scenario with a
+genuinely good customer-facing explanation and got a 5 out of 5 with
+a specific compliment and one specific, real suggestion, confirming the
+score actually tracks answer quality rather than just rewarding
+submitting something. Confirmed each retry's written answer stayed tied
+to its own attempt, not overwriting the previous one's grade. All test
+attempts created during this pass were deleted afterward, same as
+every other stage that touches the live database.
+
+---
+
 *(Next stages get appended below as they're built.)*

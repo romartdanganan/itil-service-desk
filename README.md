@@ -35,7 +35,9 @@ Change Management is intentionally still out of scope: this project builds one I
 
 `/training` is a practice mode, separate from the real ticket queue: a "call" comes in — written the way a real caller actually talks, including some vagueness on purpose — you pick your first diagnostic step from a set of multiple-choice options, and immediately see whether that choice was right (with an explanation either way) followed by how the issue was actually resolved. Attempts are tracked per user (retrying is expected — the goal is getting it right eventually, not on the first try), so `/training` also shows a running score. 12 scenarios across every incident category (Network, Software, Hardware, Access, Account, Other) and all three difficulty levels, each teaching a distinct triage or security-awareness lesson — including one about pushing back on a senior executive pressuring for a policy exception, and one about recovering a lost authenticator instead of just disabling two-factor auth. See `prisma/schema.prisma` (`TrainingScenario` / `TrainingChoice` / `TrainingAttempt`) and `src/data/training-scenarios.ts` for the content.
 
-**Shift Mode** (`/shift/[id]`) is the closer-to-an-actual-job version: start a shift from `/training` and get 5 calls queued back-to-back, with **no retries once you answer** — a real shift doesn't let you rewind a call that already happened, and that one-shot pressure is the whole point versus freeform practice. Ends in a summary (score, time taken, a per-call breakdown linking back to each scenario to review afterward). See `Shift` in `prisma/schema.prisma`.
+**Written-response grading:** each call also has a second, different question after the multiple-choice reveal, not "what would you do" but "how would you explain it to the caller." That's graded by a real LLM (Google's Gemini API, chosen because it has a genuinely free tier) rather than matched against a fixed answer, since judging whether an explanation is clear and complete isn't a keyword-matching problem. The trainee gets a score out of 5 plus one specific thing that worked and one specific thing to improve. Optional, not a gate, "Next call" is always available either way. Set `GEMINI_API_KEY` in `.env` to enable it (see `.env.example`); every other part of the app runs fine without it. See `src/lib/grade-written-answer.ts` and the `WrittenResponse` model in `prisma/schema.prisma`.
+
+**Shift Mode** (`/shift/[id]`) is the closer-to-an-actual-job version: start a shift from `/training` and get 5 calls queued back-to-back, with **no retries once you answer** — a real shift doesn't let you rewind a call that already happened, and that one-shot pressure is the whole point versus freeform practice. Ends in a summary (score, time taken, a per-call breakdown linking back to each scenario to review afterward). See `Shift` in `prisma/schema.prisma`. (Written-response grading is freeform-practice only for now, not part of Shift Mode's fast pace.)
 
 ## Tech Stack
 
@@ -80,6 +82,7 @@ src/
     demo-accounts.ts              # The shared password every seeded demo persona uses
     notifications.ts              # Builds a Notification-create operation for use inside a $transaction
     random.ts                     # Shared Fisher-Yates shuffle (Shift Mode + the ticket generator)
+    grade-written-answer.ts        # Grades a written training answer via the Gemini API
   actions/
     auth.ts                     # Server Actions: login, signup, quick demo sign-in, logout
     incidents.ts                 # Server Action: create a new incident (derives priority + SLA dates)
@@ -90,7 +93,8 @@ src/
                                     # incident), link an existing incident to an existing problem
     problem-workflow.ts            # Server Actions for the problem lifecycle: take, reassign, record
                                      # a workaround, resolve, close, comment
-    training.ts                   # Server Action: record a freeform training attempt
+    training.ts                   # Server Actions: record a freeform training attempt, grade a
+                                    # written-response follow-up answer
     shift.ts                      # Server Actions: start a shift, answer the current call in one
     generate-tickets.ts            # Server Action: simulate a fresh batch of incoming tickets
   components/
@@ -99,6 +103,7 @@ src/
     incident-list.tsx               # Shared ticket-list rendering (used by the dashboard and search page)
     problem-list.tsx                # Shared problem-list rendering (used by the /problems search page)
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
+    written-response-step.tsx        # The graded written-answer step, freeform practice only
   data/
     training-scenarios.ts          # Training Simulator content — call transcripts, choices, resolutions
     incident-templates.ts           # "Incoming tickets" content bank — realistic titles/descriptions
@@ -120,7 +125,9 @@ cd itil-service-desk
 npm install
 
 # 3. Set up your local environment file, then fill in DATABASE_URL and
-#    SESSION_SECRET (generate one with `openssl rand -base64 32`)
+#    SESSION_SECRET (generate one with `openssl rand -base64 32`).
+#    GEMINI_API_KEY is optional, only needed for written-response grading
+#    in the Training Simulator, get a free one at aistudio.google.com.
 cp .env.example .env
 
 # 4. Apply the schema to your database
@@ -139,7 +146,7 @@ To browse the database visually, run `npx prisma studio` and open the URL it pri
 
 ## Deployment
 
-Live at **[itil-service-desk.vercel.app](https://itil-service-desk.vercel.app/)** — deployed on **Vercel**, backed by **Prisma Postgres**. Requires both `DATABASE_URL` and `SESSION_SECRET` set as environment variables in the Vercel project (a session secret shared with local dev would let anyone who's seen this repo's history forge a production login — use a separately-generated one for production). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup, including why SQLite (used earlier in development) doesn't work on a serverless host and a real cross-database bug the switch surfaced.
+Live at **[itil-service-desk.vercel.app](https://itil-service-desk.vercel.app/)** — deployed on **Vercel**, backed by **Prisma Postgres**. Requires `DATABASE_URL` and `SESSION_SECRET` set as environment variables in the Vercel project (a session secret shared with local dev would let anyone who's seen this repo's history forge a production login — use a separately-generated one for production), plus `GEMINI_API_KEY` for written-response grading to work on the live demo. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup, including why SQLite (used earlier in development) doesn't work on a serverless host and a real cross-database bug the switch surfaced.
 
 ## Tests
 

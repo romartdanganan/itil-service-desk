@@ -4,6 +4,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { submitTrainingAnswer } from "@/src/actions/training";
 import { TrainingCall } from "@/src/components/training-call";
+import { WrittenResponseStep } from "@/src/components/written-response-step";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,10 @@ export default async function TrainingScenarioPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ answered?: string }>;
+  searchParams: Promise<{ answered?: string; attempt?: string }>;
 }) {
   const { id } = await params;
-  const { answered } = await searchParams;
+  const { answered, attempt: attemptId } = await searchParams;
 
   const [scenario, activeUser] = await Promise.all([
     prisma.trainingScenario.findUnique({
@@ -43,6 +44,19 @@ export default async function TrainingScenarioPage({
     ? scenario.choices.find((choice) => choice.id === answered)
     : undefined;
 
+  // The written step only shows once the multiple-choice question has
+  // been answered, the scenario actually has one, and the attempt in the
+  // URL is real and owned by whoever's signed in (a stale/tampered
+  // attempt id just makes this step not render, not crash).
+  const writtenAttempt =
+    answeredChoice && scenario.writtenPrompt && attemptId
+      ? await prisma.trainingAttempt.findUnique({
+          where: { id: attemptId },
+          include: { writtenResponse: true },
+        })
+      : null;
+  const showWrittenStep = writtenAttempt && writtenAttempt.userId === activeUser.id;
+
   return (
     <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex w-full max-w-2xl flex-col gap-6 py-16 px-6">
@@ -57,6 +71,14 @@ export default async function TrainingScenarioPage({
           hiddenFields={{ scenarioId: scenario.id }}
           metaBadge={priorAttempts > 0 ? `Attempt #${priorAttempts + 1}` : undefined}
         />
+
+        {showWrittenStep && scenario.writtenPrompt && (
+          <WrittenResponseStep
+            writtenPrompt={scenario.writtenPrompt}
+            attemptId={writtenAttempt.id}
+            response={writtenAttempt.writtenResponse ?? undefined}
+          />
+        )}
 
         {answeredChoice && (
           <div className="flex gap-3">
