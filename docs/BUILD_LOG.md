@@ -819,4 +819,91 @@ confusing on every later visit.
 
 ---
 
+## Stage 26: Problem Management (v2)
+
+Incident Management was complete and tested, so this stage started the
+second ITIL process the README always said would come next: Problem
+Management. In real ITIL, an Incident gets a service back up for one
+person or one report; a Problem asks why it keeps happening at all, and
+is worked as its own internal investigation rather than as another
+ticket in the same queue.
+
+**Scope decision, made deliberately narrow:** Incident escalation uses a
+tier ladder (`currentTier` plus `escalateIncident`) because Incident
+triage is high volume and SLA-driven. Problems are neither, by design
+there are meant to be far fewer Problems than Incidents feeding into
+them, and there is no SLA clock on a Problem in this project's scope. So
+a Problem gets a single nullable `owner`, self-assignable by any agent
+or manager, reassignable by a manager to a named agent, and no
+per-tier queue. `/problems` shows every open problem to every agent and
+manager equally. This kept the feature to one clean vertical slice
+instead of doubling the whole escalation machinery for a signal this
+project does not otherwise teach about Problems.
+
+**Schema:** two new models, `Problem` and `ProblemActivity` (the same
+append-only audit trail pattern as `IncidentActivity`), plus a nullable
+`problemId` on `Incident`. `Problem` reuses `IncidentCategory` and the
+`Impact`/`Urgency`/`Priority` machinery from `src/types/itil.ts` rather
+than inventing a parallel scale, since "how bad is this" does not
+change just because the question is being asked about a root cause
+instead of a single ticket. The one field pair worth calling out is
+`workaround`/`workaroundAt`: recording a workaround is what makes a
+Problem a Known Error in ITIL terms, and there is deliberately no
+separate boolean flag for that state. `recordWorkaround()` sets the
+workaround text and `status: KNOWN_ERROR` in the same write, so the two
+can never say different things about the same problem.
+
+**Lifecycle:** `NEW` to `INVESTIGATING` to `KNOWN_ERROR` to `RESOLVED`
+to `CLOSED`, driven by `src/actions/problem-workflow.ts`
+(`takeProblem`, `reassignProblem`, `recordWorkaround`, `resolveProblem`,
+`closeProblem`, `addProblemComment`) following the exact same shape as
+`incident-workflow.ts`: load the actor, load the record, check the ITIL
+permission rule, write inside a transaction alongside an activity row
+and any notifications, then revalidate. One rule is intentionally
+stricter than its Incident equivalent: closing a Problem is manager-only,
+not requester-or-manager, because a Problem has no customer whose
+confirmation closure depends on. It is purely an internal governance
+step.
+
+**The actual payoff:** this whole feature exists to make one moment
+concrete, an agent working an incident that turns out to be caused by
+something already understood should not have to re-diagnose it from
+scratch. `src/actions/problems.ts` handles both ways an Incident gets
+linked to a Problem: `createProblem` (raise a new Problem, optionally
+pre-filled from a source incident via `/problems/new?fromIncidentId=`,
+auto-linking it) and `linkIncidentToProblem` (link an incident to a
+Problem that already exists). The moment a linked Problem is already a
+Known Error, or becomes one while an incident is already linked to it,
+the assigned agent gets a notification with the workaround text, and the
+incident's own detail page shows an amber "Known workaround" callout
+directly, no navigating away required.
+
+**Never customer-facing, on purpose:** every `/problems` page redirects
+away anyone who is not an agent or manager, checked server-side at the
+top of each page (`isAgentRole`), the same "nav hiding is UX only, the
+real gate is server-side" pattern already used elsewhere in this app.
+The nav link itself is hidden from customers too, in `app/layout.tsx`.
+
+Verified end to end against the live database with a real browser
+driver rather than by reading code: signed in as the seeded L1 agent,
+flagged a real incident as a new problem, confirmed the pre-fill and the
+auto-link and the resulting activity rows on both records, took the
+problem, recorded a workaround and watched its status become Known
+Error, then reopened the linked incident and confirmed the workaround
+callout rendered there immediately. Separately created a second problem,
+took it, recorded its workaround, then linked a different, previously
+unlinked incident to it purely through the "link to an existing problem"
+dropdown and confirmed the same workaround callout appeared on that
+incident too, exercising the other code path into the same result.
+Signed in as the seeded Customer and confirmed there is no Problems nav
+link and that `/problems` redirects straight back to their own
+dashboard. Signed in as the seeded Manager and walked a problem through
+resolve (root cause required) and close, confirming the close action is
+manager-only along the way, and confirmed the resulting notification
+rendered correctly in the raiser's inbox. All test data created during
+this pass was deleted from the database afterward so the live demo's
+seed data was left exactly as it was found.
+
+---
+
 *(Next stages get appended below as they're built.)*

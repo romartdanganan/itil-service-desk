@@ -21,6 +21,7 @@ import {
   closeIncident,
   addComment,
 } from "@/src/actions/incident-workflow";
+import { linkIncidentToProblem } from "@/src/actions/problems";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function IncidentDetailPage({
       include: {
         requester: true,
         assignee: true,
+        problem: true,
         activities: { include: { actor: true }, orderBy: { createdAt: "asc" } },
       },
     }),
@@ -104,6 +106,17 @@ export default async function IncidentDetailPage({
     activeUser &&
     incident.status === "RESOLVED" &&
     (activeUser.id === incident.requesterId || activeUser.role === Role.MANAGER);
+
+  // Only fetched when there's actually a link form to populate: an agent
+  // viewing an incident that isn't linked to a problem yet. Never exposed
+  // to a customer, problem management is internal only.
+  const openProblems =
+    canWorkTicket && incident.problem === null
+      ? await prisma.problem.findMany({
+          where: { status: { not: "CLOSED" } },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
 
   return (
     <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
@@ -216,6 +229,79 @@ export default async function IncidentDetailPage({
             </div>
           )}
         </div>
+
+        {/* Problem Management panel, internal only, agent/manager. Shows
+            the linked problem (and its Known Error workaround, if one's
+            been recorded) so an agent working this ticket doesn't have to
+            re-diagnose something already understood, or lets them flag a
+            pattern / link an existing problem if none is linked yet. */}
+        {canWorkTicket && (
+          <div className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+            <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
+              Problem management
+            </h2>
+            {incident.problem ? (
+              <div className="mt-2">
+                <Link
+                  href={`/problems/${incident.problem.id}`}
+                  className="text-sm font-medium text-black underline dark:text-zinc-50"
+                >
+                  {incident.problem.problemNumber}: {incident.problem.title}
+                </Link>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Status: {incident.problem.status.replace("_", " ")}
+                </p>
+                {incident.problem.workaround && (
+                  <div className="mt-3 rounded-md bg-amber-50 p-3 text-sm dark:bg-amber-950/40">
+                    <p className="font-medium text-amber-900 dark:text-amber-300">
+                      Known workaround
+                    </p>
+                    <p className="mt-1 text-amber-800 dark:text-amber-400">
+                      {incident.problem.workaround}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="text-xs text-zinc-500">
+                  Not linked to a problem yet. Patterns are often only
+                  noticed after several similar tickets, so this stays
+                  available even once the ticket is resolved or closed.
+                </p>
+                {openProblems.length > 0 && (
+                  <form action={linkIncidentToProblem} className="flex gap-2">
+                    <input type="hidden" name="incidentId" value={incident.id} />
+                    <select
+                      name="problemId"
+                      required
+                      defaultValue=""
+                      className="flex-1 rounded border border-black/10 bg-white px-3 py-1.5 text-xs dark:border-white/10 dark:bg-zinc-900"
+                    >
+                      <option value="" disabled>
+                        Link to an existing problem...
+                      </option>
+                      {openProblems.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.problemNumber}: {p.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium dark:border-white/10">
+                      Link
+                    </button>
+                  </form>
+                )}
+                <Link
+                  href={`/problems/new?fromIncidentId=${incident.id}`}
+                  className="self-start rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium dark:border-white/10"
+                >
+                  Flag as new problem
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions — every form below posts straight to a Server Action in
             src/actions/incident-workflow.ts. Which forms render at all

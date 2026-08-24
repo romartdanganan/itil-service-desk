@@ -46,6 +46,11 @@ model User {
   // Every Shift (a queued batch of practice calls) this user has run.
   shifts            Shift[]
 
+  // Problem Management (v2, internal/agent+manager only, see Problem below).
+  ownedProblems     Problem[]         @relation("ProblemOwner")
+  raisedProblems    Problem[]         @relation("ProblemRaisedBy")
+  problemActivities ProblemActivity[]
+
   createdAt DateTime @default(now())
 }
 
@@ -118,6 +123,13 @@ model Incident {
   resolvedAt      DateTime?
   closedAt        DateTime?
 
+  // Root cause tracking (ITIL Problem Management, v2). Nullable, since
+  // most incidents never get linked to a Problem; only when several
+  // incidents trace back to the same underlying cause, or one triggers a
+  // formal investigation, does this get set. See Problem below.
+  problem   Problem? @relation(fields: [problemId], references: [id])
+  problemId String?
+
   activities    IncidentActivity[]
   notifications Notification[]
 
@@ -186,6 +198,7 @@ enum ActivityType {
   COMMENT
   RESOLVED
   CLOSED
+  PROBLEM_LINKED
 }
 
 // A simulated email notification — this app never sends a real email
@@ -213,6 +226,115 @@ model Notification {
   read    Boolean @default(false)
 
   createdAt DateTime @default(now())
+}
+
+// The ITIL Problem record: the underlying root cause behind one or more
+// Incidents. Where an Incident is "the printer isn't working right now"
+// (get the customer unblocked), a Problem is "why does the printer keep
+// jamming" (stop it from happening again), a different question, worked
+// by a different, internal-only process. Customers never see this model
+// or any /problems page: see isAgentRole gating on every one of them.
+//
+// Deliberately no currentTier/escalation ladder like Incident has: Problem
+// volume is far lower by design (many Incidents can trace back to one
+// Problem), and there's no SLA clock driving urgent tiered triage here.
+// A single nullable `owner`, self-assignable by any agent/manager, gives
+// "who owns this" without duplicating Incident's whole L1->L2->L3 machinery
+// for a signal this project doesn't otherwise teach about Problems.
+model Problem {
+  id            String @id @default(cuid())
+  // Human-facing reference, e.g. "PRB000001": same cosmetic-numbering
+  // approach (and the same count-based known limitation) as
+  // Incident.ticketNumber; see the comment there.
+  problemNumber String @unique
+
+  title       String
+  description String
+  // Reuses IncidentCategory rather than a parallel taxonomy, since a
+  // Problem's category is inherently the same axis as the Incidents
+  // rooted in it.
+  category    IncidentCategory
+
+  // Reuses Incident's Impact/Urgency/Priority machinery (see
+  // src/types/itil.ts) instead of inventing a parallel scale. Unlike
+  // Incident, a Problem has no SLA fields: SLA is a promise made to
+  // whoever raised a ticket, and Problem investigation has no such
+  // per-record deadline in this project's scope.
+  impact   Impact
+  urgency  Urgency
+  priority Priority
+
+  status ProblemStatus @default(NEW)
+
+  owner   User?   @relation("ProblemOwner", fields: [ownerId], references: [id])
+  ownerId String?
+
+  // Whoever raised the Problem, always an agent or manager.
+  raisedBy   User   @relation("ProblemRaisedBy", fields: [raisedById], references: [id])
+  raisedById String
+
+  // Set together the moment a workaround is recorded, since this pair IS
+  // what makes a Problem a "Known Error" in ITIL terms. There's
+  // deliberately no separate boolean flag for that: KNOWN_ERROR is a
+  // `status` value set atomically with these two fields by
+  // recordWorkaround(), so the workaround text and the status can never
+  // drift apart.
+  workaround   String?
+  workaroundAt DateTime?
+
+  // Set together by resolveProblem(), required at resolve time, the same
+  // pattern as Incident.resolutionNotes/resolvedAt, because "resolved but
+  // no explanation of why" isn't a real resolution.
+  rootCause  String?
+  resolvedAt DateTime?
+  closedAt   DateTime?
+
+  // Every Incident that traces back to this Problem: many Incidents can
+  // link to one Problem (five separate "VPN keeps dropping" tickets, one
+  // underlying cause).
+  incidents Incident[]
+
+  activities ProblemActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ProblemStatus {
+  NEW
+  INVESTIGATING
+  KNOWN_ERROR
+  RESOLVED
+  CLOSED
+}
+
+// The audit trail for a single problem, same purpose and shape as
+// IncidentActivity, kept as its own table for the same reason
+// IncidentActivity isn't shared with anything else: a plain `problemId`
+// foreign key is far simpler than a generic "activity on some entity"
+// table.
+model ProblemActivity {
+  id        String  @id @default(cuid())
+  problem   Problem @relation(fields: [problemId], references: [id])
+  problemId String
+
+  actor   User   @relation(fields: [actorId], references: [id])
+  actorId String
+
+  type    ProblemActivityType
+  message String
+
+  createdAt DateTime @default(now())
+}
+
+enum ProblemActivityType {
+  CREATED
+  ASSIGNED
+  WORKAROUND_RECORDED
+  RESOLVED
+  CLOSED
+  INCIDENT_LINKED
+  COMMENT
 }
 
 // The Training Simulator: a "call comes in" practice mode, separate from

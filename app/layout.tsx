@@ -5,7 +5,7 @@ import "./globals.css";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { logout } from "@/src/actions/auth";
-import { ROLE_LABELS } from "@/src/types/itil";
+import { ROLE_LABELS, isAgentRole } from "@/src/types/itil";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,6 +50,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             >
               Search
             </Link>
+            {activeUser && isAgentRole(activeUser.role) && (
+              <Link
+                href="/problems"
+                className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                Problems
+              </Link>
+            )}
             <Link
               href="/training"
               className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
