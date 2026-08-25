@@ -1436,4 +1436,58 @@ phone scenario still renders exactly as it always did. All test
 attempts and their graded responses were deleted from the live database
 afterward.
 
+---
+
+## Stage 35: Reports, the part of the job that isn't a ticket
+
+A direct, good question: "what else do you do at IT other than answer
+calls and emails?" Real service desk work includes a lot that never
+touches a ticket, documentation, asset tracking, onboarding checklists,
+patch scheduling, and, closest to something this app could actually
+demonstrate well, reporting. A manager's actual day-to-day is mostly
+not hands-on ticket work (the home dashboard's own manager explainer
+already says as much), it's watching how the desk is performing as a
+whole and reporting on it upward. That side of the job had no presence
+in this app at all until now.
+
+**`/reports`, manager-only.** Chosen over the other real gaps (a
+knowledge base, an onboarding checklist, asset tracking) because it
+needed no new ITIL process invented, it's a pure aggregation of data
+every existing feature (Incident, Problem, Change, Service Request)
+already generates, and it gives the Manager role something genuinely
+its own beyond "see everything," a leadership view distinct from every
+other role's working-agent view.
+
+**What it actually shows:** SLA compliance, overall and broken down by
+priority, since a flat compliance number hides whether P1s specifically
+are the problem. Average resolution time by priority. Ticket volume by
+category, the fastest way to see what's actually generating the most
+work. Current unclaimed backlog by support tier, is work piling up at
+L1, or stuck further up the chain. Escalation rate, what share of
+tickets L1 genuinely couldn't resolve alone, a real signal about triage
+quality, not just volume. And a lighter summary row across the other
+three processes: active Known Errors, the change success rate, requests
+still waiting on approval, average request fulfillment time.
+
+**No charting library.** Every bar is a plain, server-rendered
+percentage-width div (`src/components/bar-chart.tsx`), the same "HTML
+over a bundle" approach already used everywhere else in this app rather
+than pulling in a client-side charting dependency for what a handful of
+divs already does honestly. All of it computed live from the same
+records the rest of the app reads and writes, not a separate mock
+dataset built just to make a dashboard look populated.
+
+Verified with Playwright: confirmed the "Reports" nav link and the page
+itself are visible signed in as Manager, with every section rendering
+real, non-zero numbers computed from the seeded data (13 open incidents
+split correctly across tiers, category volumes matching what's actually
+in the database). Confirmed an L1 agent neither sees the nav link nor
+can reach `/reports` directly, it redirects them straight back to the
+dashboard. Caught and fixed one real cosmetic bug in this same pass: the
+backlog-by-tier chart was truncating "L2 Agent, Technical Support" and
+"L3 Agent, Specialist / Engineering" against the bar chart's fixed label
+column, since those full role titles were never meant to fit a narrow
+label, not something the shorter category/priority labels elsewhere had
+exposed. Fixed with a short tier-only label used just for that one chart.
+
 *(Next stages get appended below as they're built.)*

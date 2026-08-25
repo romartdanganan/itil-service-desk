@@ -6,6 +6,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { logout } from "@/src/actions/auth";
 import { ROLE_LABELS, isAgentRole } from "@/src/types/itil";
+import { Role } from "@/app/generated/prisma/client";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -61,6 +62,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       {activeUser && isAgentRole(activeUser.role) && (
         <Link href="/changes" className={NAV_LINK_CLASS}>
           Changes
+        </Link>
+      )}
+      {activeUser && activeUser.role === Role.MANAGER && (
+        <Link href="/reports" className={NAV_LINK_CLASS}>
+          Reports
         </Link>
       )}
       <Link href="/training" className={NAV_LINK_CLASS}>

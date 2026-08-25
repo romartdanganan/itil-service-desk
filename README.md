@@ -48,7 +48,11 @@ This project builds one ITIL process completely before expanding to the next; fo
 
 **Written-response grading:** each scenario also has a second, different question after the multiple-choice reveal, not "what would you do" but how to actually respond in that channel (explain it to the caller, write the email reply, write the chat reply). That's graded by a real LLM (Google's Gemini API, chosen because it has a genuinely free tier) rather than matched against a fixed answer, since judging whether a response is clear and complete isn't a keyword-matching problem, and the grading rubric itself is channel-aware: an email reply is judged on having a proper greeting and sign-off, a chat reply is judged on being short and immediately useful (a long, formal chat message is a real flaw there, not a strength). The trainee gets a score out of 5, one specific thing that worked, one specific thing to improve, and a concrete exemplar answer from the same grading call, so "better" has a real example to compare against, not just a verdict. Optional, not a gate, "Next call" is always available either way. Set `GEMINI_API_KEY` in `.env` to enable it (see `.env.example`); every other part of the app runs fine without it. See `src/lib/grade-written-answer.ts` and the `WrittenResponse` model in `prisma/schema.prisma`.
 
-**Shift Mode** (`/shift/[id]`) is the closer-to-an-actual-job version: start a shift from `/training` and get 5 calls queued back-to-back, with **no retries once you answer** — a real shift doesn't let you rewind a call that already happened, and that one-shot pressure is the whole point versus freeform practice. Ends in a summary (score, time taken, a per-call breakdown linking back to each scenario to review afterward). See `Shift` in `prisma/schema.prisma`. (Written-response grading is freeform-practice only for now, not part of Shift Mode's fast pace.)
+**Shift Mode** (`/shift/[id]`) is the closer-to-an-actual-job version: start a shift from `/training` and get 5 rounds queued back-to-back (a mix of calls, emails, and chats), with **no retries once you answer**, a real shift doesn't let you rewind a call that already happened, and that one-shot pressure is the whole point versus freeform practice. Ends in a summary (score, time taken, a per-round breakdown linking back to each scenario to review afterward). See `Shift` in `prisma/schema.prisma`. (Written-response grading is freeform-practice only for now, not part of Shift Mode's fast pace.)
+
+## Reports
+
+`/reports` is manager-only, and unlike everywhere else in the app, it isn't hands-on ticket work: it's the analytics/leadership side of the job, watching SLA compliance, spotting where the backlog is piling up, and reporting on how the desk is doing overall. Every number is computed live from the same Incident/Problem/Change/Service Request data the rest of the app already generates, no separate mock dataset: SLA compliance overall and broken down by priority, average resolution time by priority, ticket volume by category, current unclaimed backlog by support tier, the escalation rate (what share of tickets an L1 agent couldn't resolve alone), and a summary row across the other three processes (active Known Errors, change success rate, requests awaiting approval, average request fulfillment time). Rendered as plain server-side percentage-width bars, no charting library and no client JavaScript, consistent with the rest of the app. See `app/reports/page.tsx` and `src/components/bar-chart.tsx`.
 
 ## Tech Stack
 
@@ -84,6 +88,8 @@ app/
     page.tsx                    # Catalog + search/browse, plus "awaiting approval"/"unclaimed queue"
     new/page.tsx                 # "Log a new request" form, pre-filled from a catalog item via ?catalog=
     [id]/page.tsx                 # Request detail page, approval/fulfillment actions, activity timeline
+  reports/
+    page.tsx                    # Manager-only KPI dashboard: SLA compliance, backlog, volume, escalation rate
   training/
     page.tsx                     # Training Simulator home — every scenario + your score + "Start a shift"
     [id]/page.tsx                  # One "call": transcript, multiple-choice question, then the reveal
@@ -136,6 +142,7 @@ src/
     service-request-list.tsx         # Shared request-list rendering (used by the /requests page)
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
     written-response-step.tsx        # The graded written-answer step, freeform practice only
+    bar-chart.tsx                   # Plain server-rendered percentage-width bars, used on /reports
   data/
     training-scenarios.ts          # Training Simulator content — call transcripts, choices, resolutions
     incident-templates.ts           # "Incoming tickets" content bank — realistic titles/descriptions
