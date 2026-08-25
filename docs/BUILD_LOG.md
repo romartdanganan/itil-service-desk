@@ -1232,4 +1232,72 @@ deleted from the database afterward.
 
 ---
 
+---
+
+## Stage 32: Actually walking through it as a learner
+
+Every stage so far had been verified by testing the one thing that
+stage built. This one was different on purpose: sign in as a first-time
+visitor with no prior context, click through the app the way someone
+actually trying to learn IT support would, and see what that person
+would actually run into. Found four real things, none of them things a
+targeted feature test would have caught, because none of them were
+about whether a button worked.
+
+**The escalation target label was reading from the wrong field.**
+`app/incidents/[id]/page.tsx` was computing "Escalate to..." off
+`incident.assignee?.role`, but escalating an incident clears its
+assignee (that's how the queue hands the ticket to the next tier), so
+after any escalation at all that field is always `null`, and the label
+silently fell back to always showing "Escalate to L1 Agent," regardless
+of how far up the chain the ticket actually was. The server-side
+escalation logic itself was never wrong, it already reads
+`incident.currentTier`, the field that survives escalation, same as
+`getNextTier` expects. Only the display label was reading the wrong
+source. This one matters more than a typical cosmetic bug: "escalation
+only ever moves up, never back down" is one of the core ITIL lessons
+this app exists to teach, and the UI was contradicting its own backend
+on exactly that point. Fixed by reading `currentTier` in the label too.
+Verified with a fresh ticket (correctly showed "Escalate to L2 Agent")
+escalated once (correctly advanced to "Escalate to L3 Agent," not back
+to L1).
+
+**Problem and Change Management had zero example content anywhere.**
+Unlike Incidents, `prisma/seed.ts` never actually created a single
+Problem or Change row, so both `/problems` and `/changes` loaded as a
+bare list with nothing in it on a fresh clone or a freshly cleaned
+database, no worked example for a first-time visitor to learn the
+workflow from. Added one full example of each to the seed script: a
+Problem (`PRB000001`, linked to the existing "Card payment terminals
+down" incident, taken by an agent, given a recorded workaround, so its
+status is `KNOWN_ERROR`) and a Change (`CHG000001`, sourced from that
+same Problem, requested, approved, implemented, and completed), each
+with a proper activity trail so the history reads like something that
+actually happened rather than a row that materialized fully formed.
+Also added a one-paragraph explainer box to both `/problems` and
+`/changes`, matching the style already used on the home dashboard,
+since both pages previously assumed the visitor already knew what a
+Problem or a Change was for.
+
+**The login page pointed nowhere in particular.** A first-time visitor
+lands on `/login` and sees five demo accounts with no indication of
+which one to start with or why. Added a short paragraph pointing
+new visitors toward two concrete starting points: Training, for
+graded practice calls, or signing in as the Customer to log a real
+problem and then switching to the L1 Agent to work that same ticket
+themselves.
+
+**The shared demo personas' Training Simulator history was polluted
+with testing residue.** Every attempt, shift, and written response
+logged against Jordan Lee, Casey Kim, and the rest during this entire
+session's testing was still sitting in the live database, so a real
+visitor signing into those same shared accounts would see a training
+history that wasn't theirs and wasn't real. Deleted all of it, confirmed
+zero attempts, shifts, or written responses remain.
+
+Verified all four with Playwright against the rebuilt app: the
+escalation label change (as above), both explainer boxes and both
+seeded records rendering correctly, and the training page reading
+"You've correctly resolved 0 of 12 calls" again for a clean sign-in.
+
 *(Next stages get appended below as they're built.)*

@@ -81,6 +81,17 @@ export default async function ProblemsPage({
           subtitle="Investigate root causes behind incidents, agent and manager only."
         />
 
+        <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+          A <strong>Problem</strong> investigates why something keeps
+          happening, not just fixes it once. Flag a recurring or serious
+          incident as a new problem from its own page (or link it here if
+          one&apos;s already being tracked), then work it toward a root
+          cause. Found a workaround before the full fix exists? Record
+          it, that&apos;s what makes this a <strong>Known Error</strong>,
+          and it shows up automatically on every incident linked to it,
+          so the next agent doesn&apos;t have to start from scratch.
+        </p>
+
         <form className="flex flex-wrap gap-2 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
           <input
             type="text"

@@ -95,6 +95,17 @@ export default async function ChangesPage({
           subtitle="Request, approve, and track changes, agent and manager only."
         />
 
+        <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+          A <strong>Change</strong> is how a Problem&apos;s fix actually
+          gets delivered: planned, risk-assessed, and (for most types)
+          approved before anything happens. <strong>Standard</strong>{" "}
+          changes are routine and pre-approved. <strong>Normal</strong>{" "}
+          changes need a manager&apos;s sign-off first.{" "}
+          <strong>Emergency</strong> changes can start right away when
+          something&apos;s actively broken, but still need approval
+          recorded afterward before they can be marked complete.
+        </p>
+
         <form className="flex flex-wrap gap-2 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
           <input
             type="text"

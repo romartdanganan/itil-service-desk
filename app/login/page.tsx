@@ -47,6 +47,15 @@ export default async function LoginPage() {
           </p>
         </div>
 
+        <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+          Trying to learn IT support, not just look around? Two places to
+          start: <Link href="/training" className="underline">Training</Link>{" "}
+          for focused, graded practice calls, or sign in below as{" "}
+          <strong>Alex Rivera (Customer)</strong> to report a problem,
+          then switch to <strong>Jordan Lee (L1 Agent)</strong> to work
+          that same ticket yourself and see both sides of it.
+        </p>
+
         <LoginForm />
 
         <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">

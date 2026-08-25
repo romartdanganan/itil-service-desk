@@ -106,7 +106,13 @@ export default async function IncidentDetailPage({
   const isOpen = incident.status !== "RESOLVED" && incident.status !== "CLOSED";
   const responseDeadline = describeDeadline(incident.slaResponseDueAt, now);
   const resolveDeadline = describeDeadline(incident.slaResolveDueAt, now);
-  const nextTier = getNextTier(incident.assignee?.role ?? null);
+  // currentTier, not assignee?.role: a ticket that's already been
+  // escalated at least once is unassigned by that point (escalating
+  // clears the assignee), so reading the tier off the assignee would
+  // always show "L1" again here no matter how far up the chain the
+  // ticket actually is. currentTier is the field that survives that,
+  // same reasoning escalateIncident itself already uses server-side.
+  const nextTier = getNextTier(incident.currentTier);
 
   const canWorkTicket = activeUser ? isAgentRole(activeUser.role) : false;
   const canManage = activeUser?.role === Role.MANAGER;
