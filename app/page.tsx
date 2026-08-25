@@ -119,6 +119,11 @@ export default async function Home() {
         if (isOverdue(a) !== isOverdue(b)) return isOverdue(a) ? -1 : 1;
         return a.slaResolveDueAt.getTime() - b.slaResolveDueAt.getTime();
       });
+    // Every ticket already surfaced above, in the urgent triage list,
+    // gets left out of the plain "open" list below it, otherwise a
+    // ticket that's overdue shows up twice in a row on the same page,
+    // once as the thing to act on first, then again a few rows down.
+    const slaAtRiskIds = new Set(slaAtRisk.map((i) => i.id));
     return (
       <div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
         <main className="flex w-full max-w-3xl flex-col gap-6 py-16 px-6">
@@ -141,8 +146,10 @@ export default async function Home() {
           />
           <IncidentGroup
             title="Open incidents"
-            emptyMessage="Nothing open — every ticket is resolved or closed."
-            incidents={incidents.filter((i) => isOpenStatus(i.status))}
+            emptyMessage="Nothing open besides what's shown above."
+            incidents={incidents.filter(
+              (i) => isOpenStatus(i.status) && !slaAtRiskIds.has(i.id),
+            )}
           />
           <IncidentGroup
             title="Resolved & closed"

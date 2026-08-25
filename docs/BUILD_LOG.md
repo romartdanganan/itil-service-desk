@@ -1056,4 +1056,52 @@ afterward, same as every prior stage that touches the live database.
 
 ---
 
+## Stage 29: A UI polish pass, found by actually looking
+
+Three features shipped back to back (Problem Management, Change
+Management, written-response grading) without ever checking what the
+result actually looked like on a phone or on a long, busy dashboard.
+Rather than guess at what "polish" might mean, this stage started with
+a real visual audit, a headless browser driven across every major page,
+every seeded role, both light and dark mode, and both a desktop and a
+mobile viewport, screenshots taken and actually looked at. That surfaced
+two genuine problems, not cosmetic nitpicks.
+
+**The header nav was broken on every signed-in mobile page.** Once
+Problem and Change Management added their own nav links, a signed-in
+header had to fit six things (Search, Problems, Changes, Training,
+Inbox, plus the account block) in one row with no responsive handling
+at all. On a phone that's not a tight fit, it's an overflow: the site
+title itself wrapped across three lines, nav links and the sign-out
+button spilled past the edge of the screen and overlapped each other.
+Fixed with a CSS-only hamburger menu, no client JavaScript, matching
+this app's existing forms-over-fetch philosophy: a hidden checkbox
+input plus a label plus Tailwind's `peer-checked` variant is enough to
+toggle a stacked mobile dropdown, the desktop row is completely
+untouched above the `sm` breakpoint. The link list itself now lives in
+one variable in `app/layout.tsx` and gets rendered twice (desktop row,
+mobile dropdown) instead of being written out twice by hand, so the two
+can't quietly drift apart later.
+
+**The manager's dashboard showed the same tickets twice.** Every ticket
+already breached or at risk of breaching its SLA appeared once under
+"SLA at risk," the intentional triage-first list, and then appeared
+again immediately below under "Open incidents," which had no reason to
+exclude them. On a live database with several overdue tickets, that
+meant scrolling past the same seven cards twice in a row before reaching
+anything new. Fixed in `app/page.tsx` by excluding whatever's already in
+the SLA-at-risk set from the open-incidents list below it, each ticket
+now shows up in exactly one group.
+
+Verified with the same browser-driven approach used to find the
+problems in the first place, not just by reading the diff: confirmed the
+mobile menu opens and closes correctly and every link/name/sign-out is
+reachable and readable for both an agent (most nav items) and a customer
+(fewest), confirmed the desktop header rendered identically to before
+(no regression above the `sm` breakpoint), and confirmed the manager
+dashboard's "Open incidents" count dropped from 13 to 6 with zero
+overlap against the 7 already shown in "SLA at risk."
+
+---
+
 *(Next stages get appended below as they're built.)*
