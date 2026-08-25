@@ -351,6 +351,8 @@ async function main() {
         title: scenario.title,
         category: scenario.category,
         difficulty: scenario.difficulty,
+        channel: scenario.channel,
+        channelSubject: scenario.channelSubject,
         callerOpening: scenario.callerOpening,
         callerFollowUp: scenario.callerFollowUp,
         question: scenario.question,

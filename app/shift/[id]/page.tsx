@@ -5,6 +5,7 @@ import { getActiveUser } from "@/src/lib/session";
 import { submitShiftAnswer, startShift } from "@/src/actions/shift";
 import { TrainingCall } from "@/src/components/training-call";
 import { CATEGORY_LABELS } from "@/src/types/itil";
+import { TRAINING_CHANNEL_ICONS } from "@/src/data/training-scenarios";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,7 @@ export default async function ShiftPage({
                 >
                   <span className="flex items-center gap-2">
                     <span className="text-xs text-zinc-500">#{index + 1}</span>
+                    <span className="text-xs">{TRAINING_CHANNEL_ICONS[scenario.channel]}</span>
                     <span className="font-medium text-black dark:text-zinc-50">{scenario.title}</span>
                     <span className="text-xs text-zinc-500">{CATEGORY_LABELS[scenario.category]}</span>
                   </span>

@@ -22,19 +22,38 @@ export type WrittenGrade = {
   exemplarAnswer: string;
 };
 
+type GradeChannel = "PHONE" | "EMAIL" | "CHAT";
+
 type GradeScenarioContext = {
   title: string;
   category: string;
+  channel: GradeChannel;
   correctChoiceText: string;
   correctChoiceExplanation: string;
   resolutionSteps: string;
   writtenPrompt: string;
 };
 
+// The grading criteria genuinely differ by channel, a phone explanation
+// is spoken once and gone, an email is a written record the reader keeps
+// (so it needs a real greeting/close and can afford to be thorough), and
+// a chat reply lives or dies on being fast (a long, formal chat message
+// is itself a mistake, not a sign of thoroughness). Sharing one rubric
+// across all three would either grade emails too leniently on structure
+// or grade chat replies too harshly for being short.
+const CHANNEL_GRADING_CRITERIA: Record<GradeChannel, string> = {
+  PHONE:
+    "Grade this as something a support agent would say out loud on a phone call. Judge clarity, accuracy against the facts above, completeness (does it explain what happened and what was done, in terms a non-technical caller could follow), and tone (professional, reassuring, not condescending). Do not penalize the trainee for skipping technical jargon, plain language is the goal, not a flaw.",
+  EMAIL:
+    "Grade this as a professional support email reply the customer will keep in their inbox. Judge clarity, accuracy against the facts above, completeness, a proper greeting and sign-off, and tone (professional, reassuring, not condescending). A missing greeting or sign-off, or a reply that reads like a text message rather than a written record, should cost points. Do not penalize the trainee for skipping technical jargon, plain language is the goal, not a flaw.",
+  CHAT:
+    "Grade this as a live chat reply, sent to someone waiting on the other end right now. Judge clarity, accuracy against the facts above, and whether it's appropriately short and immediately actionable. A long, formal, essay-style reply is a real flaw here, not a strength, chat calls for the fastest correct answer, not the most thorough one. A missing greeting or sign-off is NOT a flaw in chat, that would be the wrong standard for this channel. Do not penalize the trainee for skipping technical jargon, plain language is the goal, not a flaw.",
+};
+
 function buildPrompt(scenario: GradeScenarioContext, answer: string): string {
   return `You are grading a trainee IT service desk agent's written answer in a practice tool. This is a training exercise, not a real support ticket.
 
-Scenario: ${scenario.title} (category: ${scenario.category})
+Scenario: ${scenario.title} (category: ${scenario.category}, channel: ${scenario.channel})
 The correct first diagnostic step was: ${scenario.correctChoiceText}
 Why that's correct: ${scenario.correctChoiceExplanation}
 What actually resolved the issue: ${scenario.resolutionSteps}
@@ -46,9 +65,9 @@ The trainee wrote:
 ${answer}
 """
 
-Grade this as a piece of customer-facing writing from a support agent. Judge clarity, accuracy against the facts above, completeness (does it explain what happened and what was done, in terms a non-technical caller could follow), and tone (professional, reassuring, not condescending). Do not penalize the trainee for skipping technical jargon, plain language is the goal, not a flaw.
+${CHANNEL_GRADING_CRITERIA[scenario.channel]}
 
-Give a score from 1 to 5 (5 is excellent, publish-ready; 1 is confusing or inaccurate), one short sentence naming a genuine strength, one short sentence naming the single most useful thing to improve, and a short exemplar answer of your own, 2 to 4 sentences, that would score a 5, so the trainee has something concrete to compare their own answer against. Keep the strength and improvement sentences specific to what was actually written, not generic advice.`;
+Give a score from 1 to 5 (5 is excellent, publish-ready; 1 is confusing or inaccurate), one short sentence naming a genuine strength, one short sentence naming the single most useful thing to improve, and a short exemplar answer of your own, matching the length and format appropriate for this channel, that would score a 5, so the trainee has something concrete to compare their own answer against. Keep the strength and improvement sentences specific to what was actually written, not generic advice.`;
 }
 
 const RESPONSE_SCHEMA = {

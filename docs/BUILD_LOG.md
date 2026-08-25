@@ -1369,4 +1369,71 @@ exact substring already existed elsewhere on the page before the click
 "Mark fulfilled" button's own label), fixed by waiting for something
 that actually only appears after the real state change instead.
 
+---
+
+## Stage 34: Training Simulator gets email and chat, not just calls
+
+Direct, correct feedback: a real IT support job doesn't only take phone
+calls. Email tickets and live chat are just as much a normal part of the
+job, and each one calls for a genuinely different response, not the same
+explanation copy-pasted into a different-looking box. The Training
+Simulator only ever simulated phone calls, so this stage adds the other
+two channels as first-class citizens, not a reskin.
+
+**Schema:** `TrainingScenario` gets a `channel` enum (`PHONE` / `EMAIL` /
+`CHAT`, defaulting to `PHONE` so the original 12 scenarios needed no data
+migration) and a nullable `channelSubject` (an email subject line, or a
+chat's thread name, meaningless for a phone call so it stays null there).
+Everything else about a scenario, the diagnostic multiple-choice
+question, the resolution, the two-beat caller exchange, is reused as-is
+across all three channels: triage is the same skill no matter how the
+report arrived, only the presentation and the written-reply expectations
+change.
+
+**Rendering per channel:** `training-call.tsx`'s transcript box now
+branches on `channel`. Phone keeps its original "📞 Incoming call"
+speech-bubble treatment untouched. Email renders a subject line and a
+plain written body, the way an actual email reads. Chat renders a
+thread name (`#it-support-chat`) and short, lowercase, typo-realistic
+messages, the way people actually type in a work chat, not the more
+composed voice a phone caller or an emailer uses.
+
+**Channel-aware grading, the actual "how to evaluate the user" part:**
+the written-response step's heading changes per channel ("write your
+email reply" vs. "write your chat reply" vs. the original "explain it to
+the caller"), and more importantly, so does the Gemini grading rubric in
+`grade-written-answer.ts`. An email reply is graded on having a real
+greeting and sign-off, since it's a written record the customer keeps,
+losing points if it's missing one. A chat reply is graded on being short
+and immediately useful, a long, formal, essay-style chat message is
+scored as a real flaw there, not a sign of thoroughness, the opposite of
+what would be true for an email. Sharing one rubric across all three
+channels would have graded emails too leniently on structure and chat
+replies too harshly for being brief.
+
+**New content:** three email scenarios (a shared-drive cleanup, a
+phishing report, a new starter's missing onboarding software) and three
+chat scenarios (a time-pressured outage right before a call, a
+mid-meeting screen-share fix, and a chat-flavored parallel to the
+existing phone VP-pressure scenario: a casual "just turn off MFA for
+today, I promise I'll turn it back on" request, the exact shape real
+social engineering takes). 12 scenarios becomes 18. Each new scenario
+follows the same structure the original 12 already established (a
+two-beat exchange, four choices with per-choice reasoning, a concrete
+resolution, a channel-specific written prompt), not a shortcut version.
+
+Verified with Playwright signed in as an agent: opened the phishing
+email scenario, confirmed the subject line and email-styled transcript
+render correctly, answered it, confirmed the written step's heading read
+"Now write your email reply," wrote a full reply, and let a real Gemini
+grading round trip complete, scored 5/5, with feedback specifically
+about tone and a proper closing and an exemplar answer that itself
+included a greeting and sign-off, confirming the channel-aware prompt
+actually changed the model's evaluation, not just the on-page copy.
+Repeated for a chat scenario (confirmed the thread-style transcript and
+the "Now write your chat reply" heading) and re-confirmed an original
+phone scenario still renders exactly as it always did. All test
+attempts and their graded responses were deleted from the live database
+afterward.
+
 *(Next stages get appended below as they're built.)*

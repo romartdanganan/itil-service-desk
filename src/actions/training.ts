@@ -101,6 +101,7 @@ export async function submitWrittenAnswer(formData: FormData) {
     {
       title: attempt.scenario.title,
       category: attempt.scenario.category,
+      channel: attempt.scenario.channel,
       correctChoiceText: correctChoice?.text ?? attempt.choice.text,
       correctChoiceExplanation: correctChoice?.explanation ?? attempt.choice.explanation,
       resolutionSteps: attempt.scenario.resolutionSteps,

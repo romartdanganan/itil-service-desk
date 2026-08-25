@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
 import { CATEGORY_LABELS } from "@/src/types/itil";
-import { TRAINING_DIFFICULTY_LABELS } from "@/src/data/training-scenarios";
+import { TRAINING_DIFFICULTY_LABELS, TRAINING_CHANNEL_LABELS, TRAINING_CHANNEL_ICONS } from "@/src/data/training-scenarios";
 import { startShift } from "@/src/actions/shift";
 
 export const dynamic = "force-dynamic";
@@ -52,16 +52,17 @@ export default async function TrainingHomePage() {
       <main className="flex w-full max-w-2xl flex-col gap-6 py-16 px-6">
         <div>
           <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-            📞 Training Simulator
+            🎧 Training Simulator
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            You&apos;ve correctly resolved {resolvedCount} of {scenarios.length} calls.
+            You&apos;ve correctly resolved {resolvedCount} of {scenarios.length}.
           </p>
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Practice calls come in like a real support line — read past the
-            noise, pick your first diagnostic step, then see how it was
-            actually resolved. Wrong answers are worth just as much as
-            right ones: every choice explains why.
+            A real service desk doesn&apos;t only take phone calls, so this
+            doesn&apos;t either: practice reports come in by phone, email,
+            and chat, read past the noise, pick your first diagnostic
+            step, then see how it was actually resolved. Wrong answers are
+            worth just as much as right ones, every choice explains why.
           </p>
         </div>
 
@@ -69,9 +70,9 @@ export default async function TrainingHomePage() {
           <div>
             <p className="text-sm font-semibold text-black dark:text-zinc-50">📋 Shift Mode</p>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              5 calls back-to-back, no retries once you answer — the
-              closest this gets to an actual shift, not just picking a
-              scenario at a time.
+              5 practice rounds back-to-back, calls, emails, or chats, no
+              retries once you answer, the closest this gets to an
+              actual shift, not just picking a scenario at a time.
             </p>
           </div>
           <form action={startShift}>
@@ -95,6 +96,8 @@ export default async function TrainingHomePage() {
                 >
                   <div className="flex items-center justify-between text-xs font-medium text-zinc-500">
                     <span>
+                      {TRAINING_CHANNEL_ICONS[scenario.channel]}{" "}
+                      {TRAINING_CHANNEL_LABELS[scenario.channel]} ·{" "}
                       {CATEGORY_LABELS[scenario.category]} ·{" "}
                       {TRAINING_DIFFICULTY_LABELS[scenario.difficulty]}
                     </span>

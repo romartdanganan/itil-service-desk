@@ -516,11 +516,25 @@ model TrainingScenario {
   category   IncidentCategory
   difficulty TrainingDifficulty @default(BEGINNER)
 
-  // What the caller says when the call starts.
+  // Which channel this scenario simulates, a real service desk doesn't
+  // only take phone calls, it fields emails and live chat too, and each
+  // one calls for a genuinely different response (a phone explanation is
+  // spoken and immediate, an email reply needs a greeting/close and can
+  // be more thorough, a chat reply needs to be fast and short since a
+  // wall of text in chat is its own usability problem). Defaults to
+  // PHONE so the original scenarios, written before this field existed,
+  // don't need a data migration to stay correct.
+  channel TrainingChannel @default(PHONE)
+  // The email subject line, or the chat's channel/thread name, shown in
+  // the channel-appropriate header above the message. Null for PHONE,
+  // a phone call has no subject line.
+  channelSubject String?
+
+  // What the caller says (or writes) when the exchange starts.
   callerOpening String
   // What the caller says next, after the agent asks a first clarifying
-  // question — a second beat of dialogue to sell "this is a phone call"
-  // without building a full branching conversation engine.
+  // question, a second beat of dialogue to sell "this is a real
+  // exchange" without building a full branching conversation engine.
   callerFollowUp String
 
   // The diagnostic question the trainee actually answers, e.g. "What's
@@ -550,6 +564,12 @@ enum TrainingDifficulty {
   BEGINNER
   INTERMEDIATE
   ADVANCED
+}
+
+enum TrainingChannel {
+  PHONE
+  EMAIL
+  CHAT
 }
 
 model TrainingChoice {

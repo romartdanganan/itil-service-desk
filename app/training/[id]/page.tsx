@@ -74,6 +74,7 @@ export default async function TrainingScenarioPage({
 
         {showWrittenStep && scenario.writtenPrompt && (
           <WrittenResponseStep
+            channel={scenario.channel}
             writtenPrompt={scenario.writtenPrompt}
             attemptId={writtenAttempt.id}
             response={writtenAttempt.writtenResponse ?? undefined}

@@ -1,6 +1,6 @@
 import { CATEGORY_LABELS } from "@/src/types/itil";
-import { TRAINING_DIFFICULTY_LABELS } from "@/src/data/training-scenarios";
-import type { IncidentCategory, TrainingDifficulty } from "@/app/generated/prisma/enums";
+import { TRAINING_DIFFICULTY_LABELS, TRAINING_CHANNEL_LABELS } from "@/src/data/training-scenarios";
+import type { IncidentCategory, TrainingDifficulty, TrainingChannel } from "@/app/generated/prisma/enums";
 
 // Shared between the standalone practice page (app/training/[id]/page.tsx)
 // and the Shift mode flow (app/shift/[id]/page.tsx) — both render the same
@@ -15,12 +15,75 @@ type ScenarioForCall = {
   title: string;
   category: IncidentCategory;
   difficulty: TrainingDifficulty;
+  channel: TrainingChannel;
+  channelSubject: string | null;
   callerOpening: string;
   callerFollowUp: string;
   question: string;
   resolutionSteps: string;
   choices: { id: string; text: string; isCorrect: boolean; explanation: string }[];
 };
+
+// The "incoming message" transcript, styled per channel so each one
+// actually reads like the medium it's simulating rather than three
+// channels sharing one phone-call-shaped box. The multiple-choice
+// question, reveal, and resolution box below this are identical
+// regardless of channel, triage is the same skill no matter how the
+// report arrived.
+function ChannelTranscript({ scenario }: { scenario: ScenarioForCall }) {
+  if (scenario.channel === "EMAIL") {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+        <p className="text-xs font-medium text-zinc-500">
+          {"✉️"} New email
+        </p>
+        {scenario.channelSubject && (
+          <p className="text-sm font-semibold text-black dark:text-zinc-50">
+            Subject: {scenario.channelSubject}
+          </p>
+        )}
+        <p className="whitespace-pre-wrap rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+          {scenario.callerOpening}
+        </p>
+        <p className="text-xs text-zinc-500">Their reply, after you asked a clarifying question:</p>
+        <p className="whitespace-pre-wrap rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+          {scenario.callerFollowUp}
+        </p>
+      </div>
+    );
+  }
+
+  if (scenario.channel === "CHAT") {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+        <p className="text-xs font-medium text-zinc-500">
+          {"\u{1F4AC}"} {scenario.channelSubject ?? "New chat message"}
+        </p>
+        <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+          {scenario.callerOpening}
+        </p>
+        <p className="text-xs text-zinc-500">After you ask a clarifying question:</p>
+        <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+          {scenario.callerFollowUp}
+        </p>
+      </div>
+    );
+  }
+
+  // PHONE, the original transcript treatment.
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+      <p className="text-xs font-medium text-zinc-500">📞 Incoming call</p>
+      <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+        &ldquo;{scenario.callerOpening}&rdquo;
+      </p>
+      <p className="text-xs text-zinc-500">— you ask a clarifying question —</p>
+      <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
+        &ldquo;{scenario.callerFollowUp}&rdquo;
+      </p>
+    </div>
+  );
+}
 
 export function TrainingCall({
   scenario,
@@ -44,26 +107,21 @@ export function TrainingCall({
         <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 dark:bg-zinc-800">
           {TRAINING_DIFFICULTY_LABELS[scenario.difficulty]}
         </span>
+        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 dark:bg-zinc-800">
+          {TRAINING_CHANNEL_LABELS[scenario.channel]}
+        </span>
         {metaBadge && <span>{metaBadge}</span>}
       </div>
 
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">{scenario.title}</h1>
 
-      {/* The "call" — styled as a transcript so it reads like an actual
-          support call rather than a ticket description. Both caller
-          lines show up front (see the comment in training-scenarios.ts
-          on why this is a static two-beat transcript, not a full
-          branching conversation). */}
-      <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
-        <p className="text-xs font-medium text-zinc-500">📞 Incoming call</p>
-        <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
-          &ldquo;{scenario.callerOpening}&rdquo;
-        </p>
-        <p className="text-xs text-zinc-500">— you ask a clarifying question —</p>
-        <p className="rounded-lg bg-zinc-100 p-3 text-sm text-black dark:bg-zinc-800 dark:text-zinc-50">
-          &ldquo;{scenario.callerFollowUp}&rdquo;
-        </p>
-      </div>
+      {/* The incoming report, styled to match its channel (phone
+          transcript, email, or chat thread) so it reads like the medium
+          it's simulating rather than a generic ticket description. Both
+          message beats show up front (see the comment in
+          training-scenarios.ts on why this is a static two-beat exchange,
+          not a full branching conversation). */}
+      <ChannelTranscript scenario={scenario} />
 
       {!answeredChoice ? (
         <form action={formAction} className="flex flex-col gap-3">

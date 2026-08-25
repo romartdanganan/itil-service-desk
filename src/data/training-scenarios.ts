@@ -1,4 +1,4 @@
-import type { IncidentCategory, TrainingDifficulty } from "@/app/generated/prisma/enums";
+import type { IncidentCategory, TrainingDifficulty, TrainingChannel } from "@/app/generated/prisma/enums";
 
 export const TRAINING_DIFFICULTY_LABELS: Record<TrainingDifficulty, string> = {
   BEGINNER: "Beginner",
@@ -6,15 +6,30 @@ export const TRAINING_DIFFICULTY_LABELS: Record<TrainingDifficulty, string> = {
   ADVANCED: "Advanced",
 };
 
+// A real service desk doesn't only take phone calls, so neither does this.
+// Icon plus a short label, used anywhere a scenario's channel needs to be
+// shown at a glance (the scenario list, the transcript header).
+export const TRAINING_CHANNEL_LABELS: Record<TrainingChannel, string> = {
+  PHONE: "Phone",
+  EMAIL: "Email",
+  CHAT: "Chat",
+};
+
+export const TRAINING_CHANNEL_ICONS: Record<TrainingChannel, string> = {
+  PHONE: "\u{1F4DE}",
+  EMAIL: "\u{2709}\u{FE0F}",
+  CHAT: "\u{1F4AC}",
+};
+
 // Content for the Training Simulator (see prisma/schema.prisma for why
 // this is a separate subsystem from real Incidents). Kept as plain data,
 // not database rows, for the same reason src/types/itil.ts keeps ITIL
 // policy out of the schema: this is "what a scenario says", not "how a
-// scenario is stored" — easy to read, easy to add to, no migration
-// needed to write a new call.
+// scenario is stored", easy to read, easy to add to, no migration needed
+// to write a new call.
 //
 // Every scenario's `question` is deliberately about the FIRST step, not
-// "what's broken" — the skill being taught is triage process, and the
+// "what's broken", the skill being taught is triage process, and the
 // wrong choices are written to be plausible mistakes a real trainee would
 // actually make (jumping to a disruptive fix, skipping identity
 // verification, escalating too early, treating a mass outage as one
@@ -24,16 +39,26 @@ export type TrainingScenarioSeed = {
   title: string;
   category: IncidentCategory;
   difficulty: TrainingDifficulty;
+  // Every scenario declares its channel explicitly, no default here even
+  // though the schema has one, so a new scenario can't accidentally end
+  // up PHONE by omission. See the schema comment on TrainingScenario for
+  // why the DB-level default exists (it's there for the original
+  // scenarios, written before this field did).
+  channel: TrainingChannel;
+  // Email subject line, or the chat's channel/thread name. Only makes
+  // sense for EMAIL/CHAT, leave undefined for PHONE.
+  channelSubject?: string;
   callerOpening: string;
   callerFollowUp: string;
   question: string;
   choices: { text: string; isCorrect: boolean; explanation: string }[];
   resolutionSteps: string;
   // A second question, asked after the reveal: not "what would you do"
-  // but "how would you explain it to the caller." Optional, and graded
-  // by an LLM rather than matched against a fixed answer, since judging
-  // a written explanation for clarity and tone isn't something a fixed
-  // correct answer can capture. See WrittenResponse in schema.prisma.
+  // but "how would you respond", phrased per-channel (explain it to the
+  // caller, write the email reply, write the chat reply). Optional, and
+  // graded by an LLM rather than matched against a fixed answer, since
+  // judging a written response for clarity and tone isn't something a
+  // fixed correct answer can capture. See WrittenResponse in schema.prisma.
   writtenPrompt?: string;
 };
 
@@ -42,6 +67,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Laptop won't join the office Wi-Fi",
     category: "NETWORK",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "Hi, thanks for picking up — my laptop won't connect to the office Wi-Fi. I've restarted it twice already.",
     callerFollowUp:
@@ -82,6 +108,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Expense app crashes on open",
     category: "SOFTWARE",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "Every time I open the expense reporting app it crashes after a few seconds. I have a report due today.",
     callerFollowUp:
@@ -122,6 +149,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "3rd floor printer stuck offline",
     category: "HARDWARE",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "The printer on the 3rd floor keeps saying 'offline' and nothing I send to it is printing.",
     callerFollowUp:
@@ -162,6 +190,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Suddenly locked out of the team share",
     category: "ACCESS",
     difficulty: "INTERMEDIATE",
+    channel: "PHONE",
     callerOpening:
       "I can't open the team share anymore — it says access denied. I was in it just yesterday.",
     callerFollowUp:
@@ -202,6 +231,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Locked out after too many failed logins",
     category: "ACCOUNT",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "I got locked out after too many wrong password attempts and I really need to get into my email.",
     callerFollowUp:
@@ -242,6 +272,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Whole floor's internet crawling",
     category: "NETWORK",
     difficulty: "ADVANCED",
+    channel: "PHONE",
     callerOpening:
       "Our whole team's internet has been crawling for the last hour. Video calls keep freezing.",
     callerFollowUp:
@@ -282,6 +313,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Spreadsheet won't open, says it's corrupted",
     category: "SOFTWARE",
     difficulty: "INTERMEDIATE",
+    channel: "PHONE",
     callerOpening:
       "I've got a quarterly report spreadsheet that won't open anymore — it says the file is corrupted. This has months of work in it.",
     callerFollowUp:
@@ -322,6 +354,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Laptop randomly shuts off during video calls",
     category: "HARDWARE",
     difficulty: "ADVANCED",
+    channel: "PHONE",
     callerOpening:
       "My laptop just shuts off completely, no warning, always during video calls. Happened three times this week.",
     callerFollowUp:
@@ -362,6 +395,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "New hire needs access to the finance shared drive",
     category: "ACCESS",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "Hi, I just started on the finance team this week and I need access to the finance shared drive to do my job.",
     callerFollowUp:
@@ -402,6 +436,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "Authenticator app stopped generating codes",
     category: "ACCOUNT",
     difficulty: "INTERMEDIATE",
+    channel: "PHONE",
     callerOpening:
       "My authenticator app isn't generating the right codes anymore, I can't log into anything that needs two-factor. Can you just turn off two-factor on my account so I can get in?",
     callerFollowUp:
@@ -442,6 +477,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "VP wants a policy exception, right now",
     category: "ACCOUNT",
     difficulty: "ADVANCED",
+    channel: "PHONE",
     callerOpening:
       "This is [name], VP of Sales. I need admin rights on my laptop today, I've got a client demo in an hour and I can't install the software I need without them.",
     callerFollowUp:
@@ -482,6 +518,7 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
     title: "\"My computer is being weird\"",
     category: "OTHER",
     difficulty: "BEGINNER",
+    channel: "PHONE",
     callerOpening:
       "Hey, so my computer's just... being weird today. Can you help?",
     callerFollowUp:
@@ -517,5 +554,265 @@ export const TRAINING_SCENARIOS: TrainingScenarioSeed[] = [
       "A few follow-up questions narrowed \"being weird\" down to: the caller's email client had been silently failing to send attachments over 10MB for the past two days. Once the actual symptom was clear, it was a two-minute fix — the client's attachment-size setting had reverted after an update.",
     writtenPrompt:
       "Write the actual questions you'd ask the caller to turn \"being weird\" into something you can actually diagnose.",
+  },
+
+  // Email scenarios. Reports come in with more detail up front and less
+  // time pressure than a phone call, but the reply has to hold up as a
+  // written record: a proper greeting and close, not just an explanation.
+  {
+    title: "Email: Shared drive filling up again",
+    category: "HARDWARE",
+    difficulty: "INTERMEDIATE",
+    channel: "EMAIL",
+    channelSubject: "Getting 'disk full' errors saving to the team drive",
+    callerOpening:
+      "Hi IT, for the third time this month I'm getting a 'not enough space' error trying to save files to the \\\\fileserver\\team-share drive. Can someone free up space or increase the quota? This is really slowing down my work.",
+    callerFollowUp:
+      "Sorry, to answer your question: it's happening specifically in the Marketing\\Campaigns folder, and yes, I've noticed a bunch of old video files sitting in there that nobody's touched in months.",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Check actual free space on the drive and identify what's consuming it before assuming a quota increase is the right fix.",
+        isCorrect: true,
+        explanation:
+          "The follow-up email already points at large unused video files. The real problem might be cleanup, not capacity, and diagnosing first avoids buying more storage to hold files nobody needs.",
+      },
+      {
+        text: "Immediately request budget approval to expand the drive's storage quota.",
+        isCorrect: false,
+        explanation:
+          "Jumping straight to a capacity increase skips finding out whether the space is actually needed, and the follow-up email already hints the real issue is old, unused files.",
+      },
+      {
+        text: "Tell the employee to just delete their own files to free up space.",
+        isCorrect: false,
+        explanation:
+          "This is a shared team drive, not the employee's personal space. Unilaterally deleting anything, even old files, needs verification with the team, not an instruction to one person.",
+      },
+      {
+        text: "Escalate to L3 immediately since storage issues are always infrastructure-level.",
+        isCorrect: false,
+        explanation:
+          "This looks resolvable without deep infrastructure work. Jumping straight to escalation skips even basic investigation.",
+      },
+    ],
+    resolutionSteps:
+      "Found 40GB of old campaign video files untouched for eight-plus months in the Campaigns folder. Confirmed with the marketing team lead that they were safe to archive, moved them to cold storage, and freed enough space to resolve the immediate issue. Flagged the drive for a recurring quarterly cleanup review going forward.",
+    writtenPrompt:
+      "Write your email reply to the employee explaining what you found and what you did. Include a proper greeting and sign-off, this is a written reply they'll keep in their inbox, not something you say once.",
+  },
+  {
+    title: "Email: Suspicious email reported by an employee",
+    category: "OTHER",
+    difficulty: "INTERMEDIATE",
+    channel: "EMAIL",
+    channelSubject: "Is this email safe? Looks weird",
+    callerOpening:
+      "Hi, I got an email that says it's from 'IT Support' asking me to verify my password by clicking a link because my account will be suspended in 24 hours. It looks kind of official but something feels off. Should I click it?",
+    callerFollowUp:
+      "I haven't clicked anything yet, don't worry! I just wanted to check with you first. It came from an address like it-support@company-secure-verify.com, not our normal domain.",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Confirm it's phishing based on the mismatched domain, and reply telling them not to click it, then have it reported and blocked.",
+        isCorrect: true,
+        explanation:
+          "The follow-up email already provides the smoking gun: a domain that doesn't match the real company domain. Real IT verification requests never come from a lookalike domain, this is textbook phishing.",
+      },
+      {
+        text: "Ask them to click the link so you can see what it does.",
+        isCorrect: false,
+        explanation:
+          "Never ask a user to click a suspected phishing link, even to investigate it, that's exactly the outcome the phishing attempt wants.",
+      },
+      {
+        text: "Tell them it's probably fine since IT does sometimes ask for password verification.",
+        isCorrect: false,
+        explanation:
+          "Real IT departments never ask for a password via an email link. Reassuring the employee this is normal is actively dangerous.",
+      },
+      {
+        text: "Reset the employee's password immediately as a precaution.",
+        isCorrect: false,
+        explanation:
+          "Nothing has been compromised yet, they haven't clicked anything. This jumps to a response for an incident that hasn't happened instead of addressing the actual phishing attempt.",
+      },
+    ],
+    resolutionSteps:
+      "Confirmed the email was phishing based on the lookalike domain, had the employee forward it so the sender could be blocked company-wide, and reassured them their account was never at risk since they didn't click through. No password reset was needed since nothing was compromised.",
+    writtenPrompt:
+      "Write your email reply to the employee. Confirm what it is, thank them for checking first instead of clicking, and tell them clearly what happens next.",
+  },
+  {
+    title: "Email: New starter's software wasn't set up before day one",
+    category: "SOFTWARE",
+    difficulty: "BEGINNER",
+    channel: "EMAIL",
+    channelSubject: "Missing software on my first day",
+    callerOpening:
+      "Hi, today's my first day and I was told my laptop would have the design software bundle already installed, but it's not here. My manager wants me working on a project this afternoon. Can you help?",
+    callerFollowUp:
+      "It's a Windows laptop, and the specific tools I was told I'd need are the ones in our standard Creative software bundle, I don't know the exact install package name though, sorry.",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Look up the standard onboarding software bundle assigned to their role or team and start that install right away.",
+        isCorrect: true,
+        explanation:
+          "This is a known, standard package, the Creative bundle. The fastest path is pulling up the existing standard install list rather than guessing or making them wait on back-and-forth about exact software names.",
+      },
+      {
+        text: "Tell them to wait until their manager submits a formal software request.",
+        isCorrect: false,
+        explanation:
+          "This is a known onboarding gap, not a new custom request. Standard onboarding software should already have a defined install process, adding a manager-approval step here just delays a routine fix unnecessarily.",
+      },
+      {
+        text: "Have them install it themselves using their own admin rights.",
+        isCorrect: false,
+        explanation:
+          "A brand new starter's laptop shouldn't be handed local admin rights to self-install software, that's an access-control risk on day one, not a fix.",
+      },
+      {
+        text: "Escalate immediately since onboarding failures are always a management issue.",
+        isCorrect: false,
+        explanation:
+          "This is a straightforward, fixable IT task, missing standard software, not something that needs escalating past the service desk before even attempting it.",
+      },
+    ],
+    resolutionSteps:
+      "Identified their role's standard onboarding software bundle in the provisioning system, remote-installed it directly, and confirmed all the expected tools launched correctly before their afternoon project started. Flagged the onboarding gap so this laptop gets checked before the next new starter's first day.",
+    writtenPrompt:
+      "Write your email reply to the new starter. Be reassuring, they're anxious on day one, and be clear about what you're doing and when they can expect it to be ready.",
+  },
+
+  // Chat scenarios. Fast, casual, and often mid-interruption, the reply
+  // needs to be short and immediately useful, a wall of text in live chat
+  // is its own usability problem, not a sign of thoroughness.
+  {
+    title: "Chat: Wi-Fi's down right before a call",
+    category: "NETWORK",
+    difficulty: "BEGINNER",
+    channel: "CHAT",
+    channelSubject: "#it-support-chat",
+    callerOpening:
+      "hey is anyone else's wifi down?? i have a client call starting in like 2 min and i cant get online",
+    callerFollowUp:
+      "just tried reconnecting, still nothing. laptop says 'no internet, secured' under the wifi name",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Ask if anyone else nearby is also affected, to tell a local device issue apart from a wider outage, while giving them a quick mobile-hotspot fallback for the call.",
+        isCorrect: true,
+        explanation:
+          "\"No internet, secured\" (connected to the router but no internet beyond it) plus the time pressure means the priority is confirming scope and giving them an immediate way to make the call, not diagnosing in isolation while they miss it.",
+      },
+      {
+        text: "Have them restart their laptop and wait to see if that fixes it.",
+        isCorrect: false,
+        explanation:
+          "A full restart takes too long against a two-minute deadline, and \"no internet, secured\" points at a network-level issue, not something a laptop restart is likely to fix.",
+      },
+      {
+        text: "Tell them to just reschedule the call.",
+        isCorrect: false,
+        explanation:
+          "Rescheduling a client call should be a last resort, not the first suggestion, especially when a quick mobile hotspot could get them online in seconds.",
+      },
+      {
+        text: "Ask them to run a full network diagnostic report and send you the results.",
+        isCorrect: false,
+        explanation:
+          "This takes too long for a two-minute deadline, and buries the urgent need, getting them on the call now, under a slower investigation that can happen afterward.",
+      },
+    ],
+    resolutionSteps:
+      "Confirmed two other people on the same floor reported the same issue, a switch had dropped, pointing to a local network problem, not this one laptop. Got the employee onto their phone's mobile hotspot in time for the call, then flagged the switch for a hard reset, which resolved it for the floor within a few minutes.",
+    writtenPrompt:
+      "Write your chat reply. Keep it fast and short, this is live chat under time pressure, not an email, get them the fallback plan immediately.",
+  },
+  {
+    title: "Chat: Can't share screen mid-meeting",
+    category: "SOFTWARE",
+    difficulty: "BEGINNER",
+    channel: "CHAT",
+    channelSubject: "#it-support-chat",
+    callerOpening:
+      "in a meeting right now, share screen button is greyed out in the video call app, need to present in like a minute",
+    callerFollowUp:
+      "just restarted the app once already, still greyed out. it worked yesterday",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Check whether screen recording/sharing permission was granted to the app in the OS privacy settings, a common cause of a suddenly-greyed-out share button.",
+        isCorrect: true,
+        explanation:
+          "\"Worked yesterday, suddenly doesn't\" plus an already-tried app restart points away from the app itself and toward an OS-level permission that may have been reset, common after an OS update, not something a second app restart would fix.",
+      },
+      {
+        text: "Tell them to restart the app again.",
+        isCorrect: false,
+        explanation:
+          "They already tried this and it didn't work, repeating the same failed step wastes their remaining time before they need to present.",
+      },
+      {
+        text: "Have them reinstall the entire video call app.",
+        isCorrect: false,
+        explanation:
+          "A full reinstall takes too long for someone who needs to present within a minute, and isn't justified yet, since the symptom (a permission-gated button, not a crash) doesn't point at a broken installation.",
+      },
+      {
+        text: "Tell them to share their screen using a different device instead.",
+        isCorrect: false,
+        explanation:
+          "This assumes their current device is unfixable in time without even checking the likely one-setting cause first, and asking them to switch devices mid-meeting is more disruptive than a twenty-second permissions check.",
+      },
+    ],
+    resolutionSteps:
+      "Found screen recording permission had been revoked for the video call app after a recent OS update, a known side effect of that update. Walked them through re-enabling it in system privacy settings in under a minute, share screen worked immediately after.",
+    writtenPrompt:
+      "Write your chat reply. They're mid-meeting, keep it to the exact steps, no extra explanation they don't have time to read right now.",
+  },
+  {
+    title: "Chat: Quick favor, just turn off MFA for today",
+    category: "ACCOUNT",
+    difficulty: "ADVANCED",
+    channel: "CHAT",
+    channelSubject: "#it-support-chat",
+    callerOpening:
+      "hey quick one - can you just turn off 2FA/MFA on my account for today? phone's dead and I've got a client call in 5 where I need to log into the portal",
+    callerFollowUp:
+      "I get that it's policy but it's literally just for today, I'll turn it back on myself after, promise. really need this call to go well",
+    question: "What's your first diagnostic step?",
+    choices: [
+      {
+        text: "Decline to disable MFA, and instead help them get a working second factor for right now, a backup code, or a verification method that doesn't need their phone.",
+        isCorrect: true,
+        explanation:
+          "This is the exact shape real social engineering takes: urgency plus a small, reasonable-sounding ask, framed as temporary. The right move is solving the actual underlying need, getting into the portal in the next five minutes, without disabling a security control account-wide.",
+      },
+      {
+        text: "Disable MFA for the rest of the day since it's a small, temporary request and they seem genuinely rushed.",
+        isCorrect: false,
+        explanation:
+          "Genuine urgency is exactly what makes this convincing, and exactly why it's dangerous to comply with. Disabling MFA even briefly removes protection for as long as it's off, regardless of how sincere the request sounds.",
+      },
+      {
+        text: "Ignore the request and tell them to sort it out after their call.",
+        isCorrect: false,
+        explanation:
+          "This leaves them blocked from a call they said matters, and doesn't offer any real alternative. A good agent solves the actual problem, getting them logged in, without taking the unsafe shortcut.",
+      },
+      {
+        text: "Ask a coworker to approve it instead, since it's technically not you disabling it.",
+        isCorrect: false,
+        explanation:
+          "Passing the same unsafe request to someone else doesn't make it safe. If it's the wrong move for you to make, it's the wrong move for anyone to make on this account.",
+      },
+    ],
+    resolutionSteps:
+      "Walked them through using a backup MFA code from their account recovery kit instead of disabling anything. They were logged into the portal in under two minutes, ahead of their call, and MFA stayed on the whole time. Flagged the request pattern to the security team, since \"just turn off MFA, I promise I'll turn it back on\" is a known social-engineering script worth having on record even when the employee is genuinely who they say they are.",
+    writtenPrompt:
+      "Write your chat reply. Be quick, they're in a hurry, but firm, get them unblocked without giving in on the actual ask.",
   },
 ];
