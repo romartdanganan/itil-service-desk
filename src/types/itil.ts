@@ -19,6 +19,8 @@ import {
   Priority,
   Role,
   IncidentCategory,
+  ChangeType,
+  ChangeRisk,
 } from "../../app/generated/prisma/enums";
 
 /**
@@ -132,6 +134,30 @@ export const URGENCY_LABELS: Record<Urgency, string> = {
   MEDIUM: "Medium — needs fixing today",
   LOW: "Low — can wait",
 };
+
+export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
+  STANDARD: "Standard, routine and pre-approved",
+  NORMAL: "Normal, needs manager approval first",
+  EMERGENCY: "Emergency, act now, approve after",
+};
+
+export const CHANGE_RISK_LABELS: Record<ChangeRisk, string> = {
+  LOW: "Low risk",
+  MEDIUM: "Medium risk",
+  HIGH: "High risk",
+};
+
+/**
+ * The one rule that actually differs between change types: only an
+ * EMERGENCY change can start being implemented before it's been
+ * approved. STANDARD changes are auto-approved at creation (so this
+ * question never comes up for them), and NORMAL changes always wait.
+ * See the Change model comment in prisma/schema.prisma for why this
+ * matters, real emergency changes get retroactive sign-off, not none.
+ */
+export function canStartWithoutApproval(changeType: ChangeType): boolean {
+  return changeType === ChangeType.EMERGENCY;
+}
 
 export function isAgentRole(role: Role): boolean {
   return (SUPPORT_TIERS as Role[]).includes(role) || role === Role.MANAGER;

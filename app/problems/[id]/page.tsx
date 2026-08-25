@@ -20,6 +20,7 @@ import {
   addProblemComment,
 } from "@/src/actions/problem-workflow";
 import { IncidentListItem } from "@/src/components/incident-list";
+import { ChangeListItem } from "@/src/components/change-list";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export default async function ProblemDetailPage({
     redirect("/");
   }
 
-  const [problem, agents] = await Promise.all([
+  const [problem, agents, changes] = await Promise.all([
     prisma.problem.findUnique({
       where: { id },
       include: {
@@ -77,6 +78,11 @@ export default async function ProblemDetailPage({
     prisma.user.findMany({
       where: { role: { in: [Role.AGENT_L1, Role.AGENT_L2, Role.AGENT_L3] } },
       orderBy: { name: "asc" },
+    }),
+    prisma.change.findMany({
+      where: { sourceProblemId: id },
+      include: { requestedBy: true },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -302,6 +308,32 @@ export default async function ProblemDetailPage({
             <ul className="mt-3 flex flex-col gap-3">
               {problem.incidents.map((incident) => (
                 <IncidentListItem key={incident.id} incident={incident} />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
+              Changes raised from this problem ({changes.length})
+            </h2>
+            <Link
+              href={`/changes/new?fromProblemId=${problem.id}`}
+              className="rounded-full border border-black/10 px-3 py-1 text-xs font-medium dark:border-white/10"
+            >
+              Raise a change
+            </Link>
+          </div>
+          {changes.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              No changes raised yet. Once the fix is known, raise a change
+              to actually deliver it.
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-3">
+              {changes.map((c) => (
+                <ChangeListItem key={c.id} change={c} />
               ))}
             </ul>
           )}

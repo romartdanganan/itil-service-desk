@@ -989,4 +989,71 @@ every other stage that touches the live database.
 
 ---
 
+## Stage 28: Change Management
+
+The third and final core ITIL process this project simulates, alongside
+Incident and Problem. The README has pointed at this since v1: build one
+process completely before starting the next. It also closes a real gap
+Problem Management left open: a Problem's rootCause and resolutionSteps
+describe what needs to happen, but in real ITIL the actual work of
+deploying that fix, a config change, a patch, a rollback, goes through
+its own governed process before it happens. Without Change Management,
+"resolve the problem" was the end of the simulated story. Now it can
+lead somewhere.
+
+**Three change types, genuinely different behavior, not just a label.**
+`STANDARD` changes are routine and pre-approved by definition, so they
+start already `APPROVED`, no manager action needed. `NORMAL` changes
+start `REQUESTED` and always wait for a manager's decision before they
+can begin. `EMERGENCY` changes are the interesting case: something is
+actively broken, there is no time to wait for a CAB meeting, so an
+emergency change can move straight to `IN_PROGRESS` from `REQUESTED`,
+but it still needs approval recorded, retroactively, before it can be
+marked complete. That is how real emergency changes actually work, act
+first, get signed off after, and it seemed worth simulating honestly
+rather than treating "emergency" as just a priority label on top of the
+same approval flow as everything else.
+
+**Outcomes are tracked honestly.** `COMPLETED` and `FAILED` are both
+real, distinct endings, not just "done" and "not done." A `backoutPlan`
+field, required at creation, only means something if failure is an
+outcome the tool actually lets happen and records, so this stage
+deliberately did not sweep every implementation into "completed."
+
+**Schema:** `Change` and `ChangeActivity`, same audit-trail pattern as
+`Problem`/`ProblemActivity`. The one new relationship worth noting:
+`Change.sourceProblemId`, an optional link back to the Problem a change
+is delivering the fix for, visible from both sides, the Change page
+shows what Problem it addresses, and the Problem page now shows a
+"Changes raised from this problem" list with a one-click "Raise a
+change" action, completing the Incident to Problem to Change chain
+started when Problem Management shipped.
+
+**A small business-rule addition, not a big one:** `src/types/itil.ts`
+got exactly one new function, `canStartWithoutApproval(changeType)`,
+true only for `EMERGENCY`. That is the single rule that actually
+differs between change types once creation-time auto-approval for
+STANDARD is accounted for, so it earned a name instead of staying an
+inline conditional buried in the workflow action.
+
+Verified end to end against the live database with a real browser, all
+three change types: raised a Problem, resolved it, raised a NORMAL
+change from it (confirmed the Problem page listed it immediately),
+approved it as manager, started and completed it as an agent, then
+confirmed the Problem page reflected the completed change and closed it
+as manager, checking the full activity trail read correctly at every
+step. Separately raised a standalone STANDARD change and confirmed it
+showed `APPROVED` the instant it was created, no manager action taken.
+Raised a standalone EMERGENCY change, started it immediately with zero
+approval, confirmed the "Mark completed" button was genuinely disabled
+until a manager recorded retroactive approval, then confirmed
+completion succeeded right after. Raised a second NORMAL change and had
+a manager reject it with a reason, confirming the rejection reason
+reached the requester's inbox correctly. Confirmed a customer sees no
+Changes nav link and gets redirected away from every `/changes` page.
+All test data created during this pass was deleted from the database
+afterward, same as every prior stage that touches the live database.
+
+---
+
 *(Next stages get appended below as they're built.)*

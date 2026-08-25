@@ -58,6 +58,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 Problems
               </Link>
             )}
+            {activeUser && isAgentRole(activeUser.role) && (
+              <Link
+                href="/changes"
+                className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                Changes
+              </Link>
+            )}
             <Link
               href="/training"
               className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"

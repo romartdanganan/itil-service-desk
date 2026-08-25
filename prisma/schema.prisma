@@ -51,6 +51,12 @@ model User {
   raisedProblems    Problem[]         @relation("ProblemRaisedBy")
   problemActivities ProblemActivity[]
 
+  // Change Management (v3, internal/agent+manager only, see Change below).
+  requestedChanges  Change[]         @relation("ChangeRequestedBy")
+  approvedChanges   Change[]         @relation("ChangeApprovedBy")
+  implementedChanges Change[]        @relation("ChangeImplementedBy")
+  changeActivities  ChangeActivity[]
+
   createdAt DateTime @default(now())
 }
 
@@ -294,6 +300,12 @@ model Problem {
   // underlying cause).
   incidents Incident[]
 
+  // Every Change raised to actually deliver this Problem's permanent fix.
+  // A Problem's rootCause/resolutionSteps describe WHAT needs to happen;
+  // a Change is the formal, approved, scheduled work of actually doing
+  // it. See Change below.
+  changes Change[]
+
   activities ProblemActivity[]
 
   createdAt DateTime @default(now())
@@ -334,6 +346,127 @@ enum ProblemActivityType {
   RESOLVED
   CLOSED
   INCIDENT_LINKED
+  COMMENT
+}
+
+// The ITIL Change record: a formal, approved, scheduled piece of work
+// that actually modifies something in the environment (a config change,
+// a patch, a firmware rollback). Where a Problem answers "what's the
+// root cause and the fix," a Change is the governed act of deploying
+// that fix, planned, risk-assessed, and (usually) approved before it
+// happens. Customers never see this model, same as Problem, internal
+// only, see isAgentRole gating on every /changes page and action.
+model Change {
+  id           String @id @default(cuid())
+  // Human-facing reference, e.g. "CHG000001," same cosmetic numbering
+  // approach as Incident.ticketNumber / Problem.problemNumber.
+  changeNumber String @unique
+
+  title       String
+  description String
+  // Reuses IncidentCategory rather than a parallel taxonomy, same
+  // reasoning as Problem.category.
+  category    IncidentCategory
+
+  changeType ChangeType
+  risk       ChangeRisk
+
+  // Required, not optional: a plan for what will be done, and a plan for
+  // undoing it if it goes wrong. backoutPlan only means something because
+  // FAILED (below) is a real, honestly-tracked outcome, not swept into
+  // "completed."
+  implementationPlan String
+  backoutPlan        String
+
+  // The proposed change window. Required for every type, including
+  // EMERGENCY, an emergency change still happens at a specific time, it
+  // just doesn't wait for approval first, see ChangeType.
+  plannedStart DateTime
+  plannedEnd   DateTime
+
+  status ChangeStatus @default(REQUESTED)
+
+  requestedBy   User   @relation("ChangeRequestedBy", fields: [requestedById], references: [id])
+  requestedById String
+
+  // Set once a manager approves, whenever that happens. For a STANDARD
+  // change this stays null forever, approval isn't part of the process
+  // by definition. For an EMERGENCY change this can be set AFTER
+  // implementedById/status already moved to IN_PROGRESS, the retroactive
+  // sign-off real emergency changes actually work this way.
+  approvedBy    User?   @relation("ChangeApprovedBy", fields: [approvedById], references: [id])
+  approvedById  String?
+  approvalNotes String?
+
+  implementedBy   User?   @relation("ChangeImplementedBy", fields: [implementedById], references: [id])
+  implementedById String?
+
+  // What actually happened, required at completeChange/failChange time,
+  // the same "no verdict without an explanation" rule already used for
+  // Incident.resolutionNotes and Problem.rootCause.
+  postImplementationNotes String?
+  completedAt             DateTime?
+  closedAt                DateTime?
+
+  // The Problem this Change's work actually delivers, if any. Nullable:
+  // plenty of real changes (a routine patch, a scheduled upgrade) never
+  // trace back to a specific Problem investigation.
+  sourceProblem   Problem? @relation(fields: [sourceProblemId], references: [id])
+  sourceProblemId String?
+
+  activities ChangeActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ChangeType {
+  STANDARD
+  NORMAL
+  EMERGENCY
+}
+
+enum ChangeRisk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ChangeStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CLOSED
+}
+
+// Same purpose and shape as ProblemActivity, its own table for the same
+// reason: a plain changeId foreign key over a generic "activity on some
+// entity" table.
+model ChangeActivity {
+  id       String @id @default(cuid())
+  change   Change @relation(fields: [changeId], references: [id])
+  changeId String
+
+  actor   User   @relation(fields: [actorId], references: [id])
+  actorId String
+
+  type    ChangeActivityType
+  message String
+
+  createdAt DateTime @default(now())
+}
+
+enum ChangeActivityType {
+  CREATED
+  APPROVED
+  REJECTED
+  STARTED
+  COMPLETED
+  FAILED
+  CLOSED
   COMMENT
 }
 

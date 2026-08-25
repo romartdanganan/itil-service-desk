@@ -25,11 +25,15 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Simulated incoming tickets** — a real support queue never sits empty; without something refilling it, a practice queue does. Any agent or manager can click **"🔄 Simulate new tickets arriving"** to inject a fresh batch of realistic tickets (`src/data/incident-templates.ts`, 18 templates across every category), each attributed to one of a small pool of fictional employees (`src/data/npc-employees.ts`) rather than the same one repeated name. New tickets always start at the L1 tier — matching real ITIL, and matching how they'd need to actually be escalated up by hand to reach L2/L3, not pre-placed there.
 - **In-app guidance, not just docs** — each dashboard (customer, agent, manager) opens with a plain-language explanation of what that role is for and what to do next, with ITSM terms defined inline rather than assumed. The goal is that someone with zero prior ITSM vocabulary can open the app and understand what they're looking at without reading external documentation first.
 
-Change Management is intentionally still out of scope: this project builds one ITIL process completely before expanding to the next (Incident Management first, Problem Management second).
+This project builds one ITIL process completely before expanding to the next; all three core processes are now built (Incident, Problem, Change).
 
 ## Problem Management
 
 `/problems` (agent and manager only, never customer-facing, since real Problem Management is an internal process) is where recurring or serious incidents get investigated at the root cause level instead of fixed one ticket at a time. Flag any incident as a new problem, or link it to one already being tracked, since many incidents can trace back to a single underlying cause. Investigation runs through its own status lifecycle, `NEW`, `INVESTIGATING`, `KNOWN_ERROR` (once a workaround is recorded), `RESOLVED` (once the root cause is found and permanently fixed), `CLOSED` (a manager-only governance step, since unlike an incident there is no customer confirmation to wait on). The real payoff shows up on the incident itself: once a linked problem becomes a Known Error, the incident page shows the documented workaround directly, and any agent already assigned to a linked, still-open incident gets notified the moment that workaround is recorded, so they can apply it instead of re-diagnosing something already understood. See `Problem` / `ProblemActivity` in `prisma/schema.prisma` and `src/actions/problem-workflow.ts` for the lifecycle logic.
+
+## Change Management
+
+`/changes` (agent and manager only, never customer-facing) is where a Problem's permanent fix actually gets delivered: a formal, planned modification, complete with an implementation plan, a required backout plan (what to do if it goes wrong), a planned window, and a risk level. Raise one standalone or straight from a resolved Problem (`?fromProblemId=`, auto-linked, shown on both the Change and the Problem it addresses). Three change types behave genuinely differently, not just as labels: `STANDARD` (routine, auto-approved at creation, no manager action needed), `NORMAL` (starts `REQUESTED`, needs a manager's approval before it can start), and `EMERGENCY` (can start implementation immediately from `REQUESTED`, no waiting, but still needs approval recorded retroactively before it can be marked complete, the real ITIL nuance behind an emergency change rather than just a priority label). Outcomes are tracked honestly: `COMPLETED` and `FAILED` are both real, distinct endings, since not every change succeeds, and a `backoutPlan` only means something if failure is an outcome that actually gets recorded. `CLOSED` is a manager-only governance step, same as Problem. See `Change` / `ChangeActivity` in `prisma/schema.prisma` and `src/actions/change-workflow.ts` for the lifecycle logic.
 
 ## Training Simulator
 
@@ -63,7 +67,11 @@ app/
   problems/                     # Agent/manager only, never customer-facing
     page.tsx                    # Search/browse every problem, plus an "unowned" queue
     new/page.tsx                 # "Log a new problem" form, optionally pre-filled from a source incident
-    [id]/page.tsx                 # Problem detail page, lifecycle actions, linked incidents, activity timeline
+    [id]/page.tsx                 # Problem detail page, lifecycle actions, linked incidents/changes, activity timeline
+  changes/                      # Agent/manager only, never customer-facing
+    page.tsx                    # Search/browse every change, plus an "awaiting approval" queue
+    new/page.tsx                 # "Log a new change" form, optionally pre-filled from a source problem
+    [id]/page.tsx                 # Change detail page, lifecycle actions, activity timeline
   training/
     page.tsx                     # Training Simulator home — every scenario + your score + "Start a shift"
     [id]/page.tsx                  # One "call": transcript, multiple-choice question, then the reveal
@@ -71,7 +79,7 @@ app/
     [id]/page.tsx                  # Shift Mode: 5 calls back-to-back, no retries, ends in a summary
 prisma/
   schema.prisma              # Database schema: User, Incident, IncidentActivity, Problem, ProblemActivity,
-                               # Notification, Shift, Training* models
+                               # Change, ChangeActivity, Notification, Shift, Training* models
   seed.ts                     # Demo data: one hashed-password user per role, sample incidents, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
@@ -93,6 +101,9 @@ src/
                                     # incident), link an existing incident to an existing problem
     problem-workflow.ts            # Server Actions for the problem lifecycle: take, reassign, record
                                      # a workaround, resolve, close, comment
+    changes.ts                    # Server Action: raise a new change (optionally from a source problem)
+    change-workflow.ts             # Server Actions for the change lifecycle: approve, reject, start,
+                                     # complete, fail, close, comment
     training.ts                   # Server Actions: record a freeform training attempt, grade a
                                     # written-response follow-up answer
     shift.ts                      # Server Actions: start a shift, answer the current call in one
@@ -102,6 +113,7 @@ src/
     signup-form.tsx                # Same pattern, for self-registration
     incident-list.tsx               # Shared ticket-list rendering (used by the dashboard and search page)
     problem-list.tsx                # Shared problem-list rendering (used by the /problems search page)
+    change-list.tsx                 # Shared change-list rendering (used by /changes and the Problem page)
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
     written-response-step.tsx        # The graded written-answer step, freeform practice only
   data/
