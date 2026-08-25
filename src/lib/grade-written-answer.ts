@@ -8,13 +8,18 @@ import "server-only";
 // free tier, no credit card, which matters for a project meant to be
 // clonable and runnable by anyone without a bill attached.
 
-const GEMINI_MODEL = "gemini-3.6-flash";
+// flash-lite over flash: comparable grading quality in testing, noticeably
+// faster, and this call is already the slowest thing in the app (an LLM
+// round trip on a form submit), every bit of latency shaved off here
+// matters more than it would elsewhere.
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export type WrittenGrade = {
   score: number;
   strengths: string;
   improvements: string;
+  exemplarAnswer: string;
 };
 
 type GradeScenarioContext = {
@@ -43,7 +48,7 @@ ${answer}
 
 Grade this as a piece of customer-facing writing from a support agent. Judge clarity, accuracy against the facts above, completeness (does it explain what happened and what was done, in terms a non-technical caller could follow), and tone (professional, reassuring, not condescending). Do not penalize the trainee for skipping technical jargon, plain language is the goal, not a flaw.
 
-Give a score from 1 to 5 (5 is excellent, publish-ready; 1 is confusing or inaccurate), one short sentence naming a genuine strength, and one short sentence naming the single most useful thing to improve. Keep both sentences specific to what was actually written, not generic advice.`;
+Give a score from 1 to 5 (5 is excellent, publish-ready; 1 is confusing or inaccurate), one short sentence naming a genuine strength, one short sentence naming the single most useful thing to improve, and a short exemplar answer of your own, 2 to 4 sentences, that would score a 5, so the trainee has something concrete to compare their own answer against. Keep the strength and improvement sentences specific to what was actually written, not generic advice.`;
 }
 
 const RESPONSE_SCHEMA = {
@@ -52,8 +57,9 @@ const RESPONSE_SCHEMA = {
     score: { type: "integer", minimum: 1, maximum: 5 },
     strengths: { type: "string" },
     improvements: { type: "string" },
+    exemplarAnswer: { type: "string" },
   },
-  required: ["score", "strengths", "improvements"],
+  required: ["score", "strengths", "improvements", "exemplarAnswer"],
 };
 
 export async function gradeWrittenAnswer(
@@ -94,7 +100,8 @@ export async function gradeWrittenAnswer(
   if (
     typeof parsed.score !== "number" ||
     typeof parsed.strengths !== "string" ||
-    typeof parsed.improvements !== "string"
+    typeof parsed.improvements !== "string" ||
+    typeof parsed.exemplarAnswer !== "string"
   ) {
     throw new Error("Grading response was missing expected fields.");
   }
@@ -103,5 +110,6 @@ export async function gradeWrittenAnswer(
     score: Math.max(1, Math.min(5, Math.round(parsed.score))),
     strengths: parsed.strengths,
     improvements: parsed.improvements,
+    exemplarAnswer: parsed.exemplarAnswer,
   };
 }

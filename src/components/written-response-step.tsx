@@ -1,4 +1,5 @@
 import { submitWrittenAnswer } from "@/src/actions/training";
+import { SubmitButton } from "@/src/components/submit-button";
 
 // A second, separate step from TrainingCall above, shown only after that
 // component's multiple-choice reveal: not "what would you do" but "how
@@ -15,7 +16,13 @@ export function WrittenResponseStep({
 }: {
   writtenPrompt: string;
   attemptId: string;
-  response?: { answer: string; score: number; strengths: string; improvements: string };
+  response?: {
+    answer: string;
+    score: number;
+    strengths: string;
+    improvements: string;
+    exemplarAnswer: string | null;
+  };
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
@@ -34,12 +41,12 @@ export function WrittenResponseStep({
             placeholder="Write what you'd actually say..."
             className="rounded border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-900"
           />
-          <button
-            type="submit"
-            className="self-start rounded-full border border-black/10 px-5 py-2 text-sm font-medium dark:border-white/10"
+          <SubmitButton
+            pendingText="Getting feedback..."
+            className="self-start rounded-full border border-black/10 px-5 py-2 text-sm font-medium transition-colors hover:border-black/20 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-70 dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-zinc-800"
           >
             Get feedback
-          </button>
+          </SubmitButton>
         </form>
       ) : (
         <div className="flex flex-col gap-3">
@@ -59,6 +66,16 @@ export function WrittenResponseStep({
               {response.improvements}
             </p>
           </div>
+          {response.exemplarAnswer && (
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-300">
+                A strong answer would sound like
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-emerald-800 dark:text-emerald-400">
+                {response.exemplarAnswer}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

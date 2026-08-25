@@ -116,6 +116,7 @@ export async function submitWrittenAnswer(formData: FormData) {
       score: grade.score,
       strengths: grade.strengths,
       improvements: grade.improvements,
+      exemplarAnswer: grade.exemplarAnswer,
     },
   });
 
