@@ -57,6 +57,12 @@ model User {
   implementedChanges Change[]        @relation("ChangeImplementedBy")
   changeActivities  ChangeActivity[]
 
+  // Service Request Management (v4, customer-facing, see ServiceRequest below).
+  submittedServiceRequests ServiceRequest[]         @relation("ServiceRequestRequester")
+  fulfilledServiceRequests ServiceRequest[]         @relation("ServiceRequestFulfiller")
+  approvedServiceRequests  ServiceRequest[]         @relation("ServiceRequestApprovedBy")
+  serviceRequestActivities ServiceRequestActivity[]
+
   createdAt DateTime @default(now())
 }
 
@@ -625,6 +631,116 @@ model WrittenResponse {
   exemplarAnswer String?
 
   createdAt DateTime @default(now())
+}
+
+// The ITIL Service Request record: a formal, routine ask for something,
+// new hardware, a software install, access to a resource, a password
+// reset, as opposed to an Incident, which is something broken. Customer-
+// facing, same as Incident (the requester is any employee asking IT for
+// something), unlike Problem/Change which are internal only.
+//
+// Deliberately no L1/L2/L3 tier ladder like Incident: a real service desk
+// usually fulfills routine requests directly rather than escalating them
+// through the same tiered skill ladder used for troubleshooting an actual
+// fault, so a single shared fulfillment queue (any agent or manager can
+// take one) is the honest model here, the same reasoning Problem's single
+// nullable owner already uses instead of duplicating Incident's ladder.
+model ServiceRequest {
+  id            String @id @default(cuid())
+  // Human-facing reference, e.g. "SR000001", same cosmetic-numbering
+  // approach as Incident.ticketNumber / Problem.problemNumber / Change.changeNumber.
+  requestNumber String @unique
+
+  title       String
+  description String
+  // Reuses IncidentCategory rather than a parallel taxonomy, same
+  // reasoning as Problem.category / Change.category.
+  category    IncidentCategory
+
+  // Whether this needed a manager's sign-off before fulfillment could
+  // start, set once at creation from whichever catalog item was chosen
+  // (see src/data/service-request-catalog.ts). STANDARD requests (a
+  // password reset, a routine software install) are pre-approved by
+  // definition and go straight to the fulfillment queue; APPROVAL_REQUIRED
+  // requests (new hardware, non-standard access) wait on a manager first.
+  // A third, real ITIL distinction from Change's STANDARD/NORMAL/EMERGENCY
+  // split: there's no emergency-request equivalent here, urgent
+  // break/fix work is what Incident is for, a Service Request is by
+  // definition never urgent.
+  requestType ServiceRequestType
+
+  status ServiceRequestStatus @default(SUBMITTED)
+
+  requester   User   @relation("ServiceRequestRequester", fields: [requesterId], references: [id])
+  requesterId String
+
+  fulfiller   User?   @relation("ServiceRequestFulfiller", fields: [fulfillerId], references: [id])
+  fulfillerId String?
+
+  // Set once a manager decides, only ever relevant for an
+  // APPROVAL_REQUIRED request, a STANDARD request never has one.
+  approvedBy    User?   @relation("ServiceRequestApprovedBy", fields: [approvedById], references: [id])
+  approvedById  String?
+  approvalNotes String?
+
+  fulfillmentNotes String?
+  fulfilledAt      DateTime?
+  closedAt         DateTime?
+
+  // Same per-browser sandboxing as Incident.demoSessionId, see the
+  // comment there and src/lib/demo-session.ts.
+  demoSessionId String?
+
+  activities ServiceRequestActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([demoSessionId])
+}
+
+enum ServiceRequestType {
+  STANDARD
+  APPROVAL_REQUIRED
+}
+
+enum ServiceRequestStatus {
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  FULFILLED
+  CLOSED
+  CANCELLED
+}
+
+// Same purpose and shape as IncidentActivity/ProblemActivity/ChangeActivity,
+// its own table for the same reason: a plain serviceRequestId foreign key
+// over a generic "activity on some entity" table.
+model ServiceRequestActivity {
+  id               String         @id @default(cuid())
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  serviceRequestId String
+
+  actor   User   @relation(fields: [actorId], references: [id])
+  actorId String
+
+  type    ServiceRequestActivityType
+  message String
+
+  createdAt DateTime @default(now())
+}
+
+enum ServiceRequestActivityType {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ASSIGNED
+  FULFILLED
+  CLOSED
+  CANCELLED
+  COMMENT
 }
 
 // Shift Mode: several calls back-to-back, no retries mid-shift, ending in

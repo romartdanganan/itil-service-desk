@@ -1300,4 +1300,73 @@ escalation label change (as above), both explainer boxes and both
 seeded records rendering correctly, and the training page reading
 "You've correctly resolved 0 of 12 calls" again for a clean sign-in.
 
+---
+
+## Stage 33: Service Request Management, the fourth ITIL process
+
+With Incident, Problem, and Change all built, the natural next process
+was **Service Request Management**: a formal, routine ask for something,
+new hardware, a software install, access to a folder, a password reset,
+as opposed to an Incident, which is something broken. Distinct enough
+from Incident Management that conflating the two is itself a common
+real-world mistake, and directly relevant to the internal-IT,
+hardware/access-request work this project already set out to simulate.
+
+**Customer-facing, unlike Problem/Change.** Anyone signed in can submit a
+request, the requester is whoever asked, same as Incident. `/requests`
+uses one role-scoped `WHERE` clause (customer sees only their own,
+agents and managers see everything) rather than three separate rendered
+views, the same shape `app/incidents/page.tsx` already established for
+its own search page.
+
+**A small service catalog, not a blank form by default.** Real ITIL
+service catalogs list a fixed menu of things IT already knows how to
+fulfill, each with its terms already decided. `src/data/service-request-
+catalog.ts` holds eight of these (password reset, VPN access, a new
+starter's laptop, and so on), each pre-classified as either
+**pre-approved** or **needs a manager's sign-off**, the actual ITIL
+distinction this feature exists to teach. Picking one from `/requests`
+pre-fills the form via a plain `?catalog=slug` query param, the same
+server-rendered pre-fill pattern already used for "raise a problem from
+this incident" and "raise a change from this problem", no client-side
+JavaScript involved. Describing something outside the catalog is still
+allowed, but defaults to needing approval, since only a pre-approved,
+named ask gets to skip that step.
+
+**A third variant of "does this need sign-off first."** Incident has
+tiered escalation. Change has Standard/Normal/Emergency. Service Request
+adds a third shape of the same underlying ITIL question: `STANDARD`
+requests go straight from `SUBMITTED` to the shared fulfillment queue;
+`APPROVAL_REQUIRED` requests sit in `PENDING_APPROVAL` until a manager
+decides. Deliberately no emergency-request equivalent, by ITIL
+definition a request is never urgent break/fix work, that's what
+Incident is for. Also deliberately no L1/L2/L3 tier ladder: real service
+desks fulfill routine requests directly rather than escalating them
+through the same skill tiers used for troubleshooting an actual fault,
+the same reasoning Problem's single nullable owner already uses instead
+of duplicating Incident's ladder.
+
+Seeded two worked examples the same way Problem/Change got theirs last
+stage, rather than shipping this feature with an empty list again: one
+`STANDARD` request walked all the way through submit → take → fulfill →
+close, and one `APPROVAL_REQUIRED` request left sitting in
+`PENDING_APPROVAL`, so a fresh Manager sign-in sees a real "Awaiting
+approval" queue on day one, not an empty one.
+
+Verified end-to-end with Playwright across three personas in the same
+browser context (a customer submitting both a catalog and a custom
+request, a manager approving one and seeing the seeded one waiting, an
+agent taking and fulfilling one, the customer closing it) plus a second,
+separate context confirming per-visitor sandboxing holds for this new
+model too: a stranger signing into the same shared Customer account
+can't see the first visitor's private request in their list, and
+guessing its URL directly 404s, while the seeded baseline catalog and
+examples stay visible to both. Two false negatives during this pass
+turned out to be the test script's own fault, not the app's: waiting for
+literal text "APPROVED"/"FULFILLED" resolved instantly because that
+exact substring already existed elsewhere on the page before the click
+(the approval panel's own "pre-approved catalog" explainer copy, and the
+"Mark fulfilled" button's own label), fixed by waiting for something
+that actually only appears after the real state change instead.
+
 *(Next stages get appended below as they're built.)*

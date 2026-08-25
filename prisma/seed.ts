@@ -257,6 +257,79 @@ async function main() {
     ],
   });
 
+  // Two worked Service Request examples, same "give a first-time visitor
+  // something real to look at, not an empty list" reasoning as the
+  // Problem/Change examples above. One walked all the way through a
+  // STANDARD (pre-approved) request's lifecycle; one left sitting in
+  // PENDING_APPROVAL, so the Manager's "Awaiting approval" queue, the
+  // real ITIL distinction this feature exists to teach, isn't empty on a
+  // fresh seed either.
+  const passwordReset = await prisma.serviceRequest.create({
+    data: {
+      requestNumber: "SR000001",
+      title: "Password reset",
+      description: "I'm locked out of my account and need my password reset.",
+      category: "ACCOUNT",
+      requestType: "STANDARD",
+      status: "CLOSED",
+      requesterId: customer.id,
+      fulfillerId: l1.id,
+      fulfillmentNotes: "Reset the password and had the user set a new one on next login.",
+      fulfilledAt: new Date(),
+      closedAt: new Date(),
+    },
+  });
+
+  await prisma.serviceRequestActivity.createMany({
+    data: [
+      {
+        serviceRequestId: passwordReset.id,
+        actorId: customer.id,
+        type: "SUBMITTED",
+        message: `${customer.name} submitted this request. Pre-approved, ready for fulfillment.`,
+      },
+      {
+        serviceRequestId: passwordReset.id,
+        actorId: l1.id,
+        type: "ASSIGNED",
+        message: `${l1.name} took this request and started fulfilling it.`,
+      },
+      {
+        serviceRequestId: passwordReset.id,
+        actorId: l1.id,
+        type: "FULFILLED",
+        message: `${l1.name} fulfilled this request.`,
+      },
+      {
+        serviceRequestId: passwordReset.id,
+        actorId: customer.id,
+        type: "CLOSED",
+        message: `${customer.name} confirmed this request and closed it.`,
+      },
+    ],
+  });
+
+  const newLaptop = await prisma.serviceRequest.create({
+    data: {
+      requestNumber: "SR000002",
+      title: "New starter laptop",
+      description: "A new starter needs a laptop set up before their start date.",
+      category: "HARDWARE",
+      requestType: "APPROVAL_REQUIRED",
+      status: "PENDING_APPROVAL",
+      requesterId: customer.id,
+    },
+  });
+
+  await prisma.serviceRequestActivity.create({
+    data: {
+      serviceRequestId: newLaptop.id,
+      actorId: customer.id,
+      type: "SUBMITTED",
+      message: `${customer.name} submitted this request for manager approval.`,
+    },
+  });
+
   // NPC customer pool for the "simulate incoming tickets" generator —
   // real accounts (nobody logs into them, but the requesterId foreign
   // key needs a real User row), reusing the demo password hash since
@@ -300,6 +373,7 @@ async function main() {
     incidents: samples.length,
     problems: 1,
     changes: 1,
+    serviceRequests: 2,
     trainingScenarios: TRAINING_SCENARIOS.length,
   });
 }

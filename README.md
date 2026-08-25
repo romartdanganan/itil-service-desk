@@ -26,7 +26,7 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Simulated incoming tickets** — a real support queue never sits empty; without something refilling it, a practice queue does. Any agent or manager can click **"🔄 Simulate new tickets arriving"** to inject a fresh batch of realistic tickets (`src/data/incident-templates.ts`, 18 templates across every category), each attributed to one of a small pool of fictional employees (`src/data/npc-employees.ts`) rather than the same one repeated name. New tickets always start at the L1 tier — matching real ITIL, and matching how they'd need to actually be escalated up by hand to reach L2/L3, not pre-placed there.
 - **In-app guidance, not just docs** — each dashboard (customer, agent, manager) opens with a plain-language explanation of what that role is for and what to do next, with ITSM terms defined inline rather than assumed. The goal is that someone with zero prior ITSM vocabulary can open the app and understand what they're looking at without reading external documentation first.
 
-This project builds one ITIL process completely before expanding to the next; all three core processes are now built (Incident, Problem, Change).
+This project builds one ITIL process completely before expanding to the next; four processes are now built (Incident, Problem, Change, Service Request).
 
 ## Problem Management
 
@@ -35,6 +35,10 @@ This project builds one ITIL process completely before expanding to the next; al
 ## Change Management
 
 `/changes` (agent and manager only, never customer-facing) is where a Problem's permanent fix actually gets delivered: a formal, planned modification, complete with an implementation plan, a required backout plan (what to do if it goes wrong), a planned window, and a risk level. Raise one standalone or straight from a resolved Problem (`?fromProblemId=`, auto-linked, shown on both the Change and the Problem it addresses). Three change types behave genuinely differently, not just as labels: `STANDARD` (routine, auto-approved at creation, no manager action needed), `NORMAL` (starts `REQUESTED`, needs a manager's approval before it can start), and `EMERGENCY` (can start implementation immediately from `REQUESTED`, no waiting, but still needs approval recorded retroactively before it can be marked complete, the real ITIL nuance behind an emergency change rather than just a priority label). Outcomes are tracked honestly: `COMPLETED` and `FAILED` are both real, distinct endings, since not every change succeeds, and a `backoutPlan` only means something if failure is an outcome that actually gets recorded. `CLOSED` is a manager-only governance step, same as Problem. See `Change` / `ChangeActivity` in `prisma/schema.prisma` and `src/actions/change-workflow.ts` for the lifecycle logic.
+
+## Service Request Management
+
+`/requests` is customer-facing, same as Incident, unlike Problem/Change: anyone can ask IT for something routine, a password reset, a new laptop, access to a shared folder, without anything actually being broken. That distinction from Incident Management is the point of this process existing at all. A small catalog of common, named requests (`src/data/service-request-catalog.ts`) pre-fills the form with the right category and approval requirement already decided, or describe something outside the catalog and it defaults to needing sign-off, since only pre-approved, standard asks skip that step. `STANDARD` requests (a password reset, a routine software install) go straight from `SUBMITTED` to the shared fulfillment queue; `APPROVAL_REQUIRED` requests (new hardware, non-standard access) sit in `PENDING_APPROVAL` until a manager approves or rejects them, a real third variant of "does this need sign-off" alongside Incident's tiered escalation and Change's Standard/Normal/Emergency split. No L1/L2/L3 ladder here on purpose: real service desks fulfill routine requests directly rather than escalating them through the same skill tiers used for troubleshooting an actual fault. See `ServiceRequest` / `ServiceRequestActivity` in `prisma/schema.prisma` and `src/actions/service-request-workflow.ts` for the lifecycle logic.
 
 ## Training Simulator
 
@@ -74,6 +78,10 @@ app/
     page.tsx                    # Search/browse every change, plus an "awaiting approval" queue
     new/page.tsx                 # "Log a new change" form, optionally pre-filled from a source problem
     [id]/page.tsx                 # Change detail page, lifecycle actions, activity timeline
+  requests/                     # Customer-facing, same as incidents/
+    page.tsx                    # Catalog + search/browse, plus "awaiting approval"/"unclaimed queue"
+    new/page.tsx                 # "Log a new request" form, pre-filled from a catalog item via ?catalog=
+    [id]/page.tsx                 # Request detail page, approval/fulfillment actions, activity timeline
   training/
     page.tsx                     # Training Simulator home — every scenario + your score + "Start a shift"
     [id]/page.tsx                  # One "call": transcript, multiple-choice question, then the reveal
@@ -81,8 +89,10 @@ app/
     [id]/page.tsx                  # Shift Mode: 5 calls back-to-back, no retries, ends in a summary
 prisma/
   schema.prisma              # Database schema: User, Incident, IncidentActivity, Problem, ProblemActivity,
-                               # Change, ChangeActivity, Notification, Shift, Training* models
-  seed.ts                     # Demo data: one hashed-password user per role, sample incidents, training scenarios
+                               # Change, ChangeActivity, ServiceRequest, ServiceRequestActivity,
+                               # Notification, Shift, Training* models
+  seed.ts                     # Demo data: one hashed-password user per role, sample incidents,
+                                # a worked problem/change/service-request example, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
   lib/
@@ -108,6 +118,9 @@ src/
     changes.ts                    # Server Action: raise a new change (optionally from a source problem)
     change-workflow.ts             # Server Actions for the change lifecycle: approve, reject, start,
                                      # complete, fail, close, comment
+    service-requests.ts            # Server Action: submit a new service request (from the catalog or custom)
+    service-request-workflow.ts     # Server Actions for the request lifecycle: approve, reject, take,
+                                     # reassign, fulfill, close, cancel, comment
     training.ts                   # Server Actions: record a freeform training attempt, grade a
                                     # written-response follow-up answer
     shift.ts                      # Server Actions: start a shift, answer the current call in one
@@ -118,12 +131,14 @@ src/
     incident-list.tsx               # Shared ticket-list rendering (used by the dashboard and search page)
     problem-list.tsx                # Shared problem-list rendering (used by the /problems search page)
     change-list.tsx                 # Shared change-list rendering (used by /changes and the Problem page)
+    service-request-list.tsx         # Shared request-list rendering (used by the /requests page)
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
     written-response-step.tsx        # The graded written-answer step, freeform practice only
   data/
     training-scenarios.ts          # Training Simulator content — call transcripts, choices, resolutions
     incident-templates.ts           # "Incoming tickets" content bank — realistic titles/descriptions
     npc-employees.ts                # Fictional employee pool generated tickets are attributed to
+    service-request-catalog.ts      # Common named requests, each pre-classified standard vs. needs-approval
   types/itil.ts                    # ITIL business rules: impact/urgency -> priority matrix, SLA targets,
                                      # escalation-tier logic, role/label lookups
 ```

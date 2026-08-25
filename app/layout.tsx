@@ -48,6 +48,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <Link href="/incidents" className={NAV_LINK_CLASS}>
         Search
       </Link>
+      {activeUser && (
+        <Link href="/requests" className={NAV_LINK_CLASS}>
+          Requests
+        </Link>
+      )}
       {activeUser && isAgentRole(activeUser.role) && (
         <Link href="/problems" className={NAV_LINK_CLASS}>
           Problems
