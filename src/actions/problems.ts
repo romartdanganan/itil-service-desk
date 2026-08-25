@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId } from "@/src/lib/demo-session";
+import { nextSequentialNumber } from "@/src/lib/sequential-number";
 import { derivePriority, isAgentRole } from "@/src/types/itil";
 import type { Impact, Urgency, IncidentCategory } from "@/app/generated/prisma/client";
 import { buildNotification } from "@/src/lib/notifications";
@@ -46,10 +48,13 @@ export async function createProblem(formData: FormData) {
 
   const priority = derivePriority(impact as Impact, urgency as Urgency);
 
-  // Same cosmetic, count-based numbering approach as createIncident (see
-  // the comment there for the known limitation), just with a "PRB" prefix.
-  const existingCount = await prisma.problem.count();
-  const problemNumber = `PRB${String(existingCount + 1).padStart(6, "0")}`;
+  // See src/lib/sequential-number.ts for why this is derived from the
+  // highest existing problem number, not a row count.
+  const lastProblem = await prisma.problem.findFirst({
+    orderBy: { problemNumber: "desc" },
+    select: { problemNumber: true },
+  });
+  const problemNumber = nextSequentialNumber(lastProblem?.problemNumber ?? null, "PRB");
 
   const problem = await prisma.problem.create({
     data: {
@@ -61,6 +66,7 @@ export async function createProblem(formData: FormData) {
       urgency: urgency as Urgency,
       priority,
       raisedById: activeUser.id,
+      demoSessionId: await getDemoSessionId(),
     },
   });
 
@@ -75,7 +81,9 @@ export async function createProblem(formData: FormData) {
 
   if (typeof sourceIncidentId === "string" && sourceIncidentId.length > 0) {
     const incident = await prisma.incident.findUnique({ where: { id: sourceIncidentId } });
-    if (incident && incident.problemId === null) {
+    const inScope =
+      incident && (!incident.demoSessionId || incident.demoSessionId === problem.demoSessionId);
+    if (incident && inScope && incident.problemId === null) {
       await prisma.$transaction([
         prisma.incident.update({
           where: { id: sourceIncidentId },
@@ -133,8 +141,9 @@ export async function linkIncidentToProblem(formData: FormData) {
     throw new Error("Missing problemId.");
   }
 
+  const demoSessionId = await getDemoSessionId();
   const incident = await prisma.incident.findUnique({ where: { id: incidentId } });
-  if (!incident) {
+  if (!incident || (incident.demoSessionId && incident.demoSessionId !== demoSessionId)) {
     throw new Error("Incident not found.");
   }
   if (incident.problemId !== null) {
@@ -142,7 +151,7 @@ export async function linkIncidentToProblem(formData: FormData) {
   }
 
   const problem = await prisma.problem.findUnique({ where: { id: problemId } });
-  if (!problem) {
+  if (!problem || (problem.demoSessionId && problem.demoSessionId !== demoSessionId)) {
     throw new Error("Problem not found.");
   }
 

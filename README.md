@@ -18,6 +18,7 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Support Tiers (L1 / L2 / L3) & Escalation** — incidents are assigned to Level 1 (service desk), Level 2 (technical support), or Level 3 (specialist/engineering) agents. Escalating a ticket always moves it UP a tier (never back to the customer) and hands it to that tier's queue rather than one named person — see `getNextTier` in `src/types/itil.ts`.
 - **Role-scoped dashboards** — the home page is a different view depending on who's signed in: a customer sees only the tickets they reported, an agent sees their own claimed tickets plus their tier's unclaimed queue, and a manager sees everything. The `currentTier` field on each incident is what makes an unassigned, escalated ticket still routable to the right tier's queue.
 - **Real authentication** — email/password accounts with bcrypt-hashed passwords and a signed session (JWT in an HttpOnly cookie, verified on every request — see `src/lib/session.ts`), not a cookie you could edit in devtools to become anyone. Self-registration always creates a Customer account; L1/L2/L3 and Manager accounts are provisioned internally, the same way a real IT department doesn't let anyone sign themselves up as a support agent.
+- **Per-visitor demo sandboxing**: every seeded demo account (including Manager) is a single shared row anyone can sign into with one click, so without this, one visitor's real submitted tickets would be visible to every other stranger who happens to click the same account. A separate, long-lived browser cookie (`demo_session`, distinct from the login cookie, see `src/lib/demo-session.ts`) tags everything a visitor creates. Switching roles in the same browser still shows your own work; a different visitor, even signed into the exact same shared account, never sees it. The app's built-in seed and generated baseline content stays visible to everyone, only what a visitor personally adds is private.
 - **Search & filter** — `/incidents` lets you search by text (ticket number, title, description) and filter by status/priority/category, still bounded by the same role visibility as the dashboard — an L1 agent searching can't surface a ticket they have no reason to see.
 - **Resolve vs. Close as separate steps** — Resolving records the fix; Closing is a separate confirmation (by the requester or a manager) that the fix actually held. A `RESOLVED` ticket can't be closed by just anyone, and the SLA-breach flag is calculated and permanently recorded the moment a ticket is resolved.
 - **Audit trail** — every status change, assignment, escalation, resolution, closure, and comment on an incident is recorded as an `IncidentActivity`, so a ticket's full history is visible on its detail page.
@@ -54,6 +55,7 @@ This project builds one ITIL process completely before expanding to the next; al
 ## Project Architecture / Directory Map
 
 ```
+proxy.ts                    # Assigns every browser its demo_session cookie on first visit
 app/
   page.tsx                  # Home page — personal "my work" dashboard, role-scoped (requires sign-in)
   layout.tsx                 # Root HTML layout, header shows signed-in user + sign out, unread inbox badge
@@ -90,6 +92,8 @@ src/
     demo-accounts.ts              # The shared password every seeded demo persona uses
     notifications.ts              # Builds a Notification-create operation for use inside a $transaction
     random.ts                     # Shared Fisher-Yates shuffle (Shift Mode + the ticket generator)
+    demo-session.ts                # Reads the demo_session cookie; the per-visitor visibility filter
+    sequential-number.ts            # Derives the next INC/PRB/CHG number from the highest existing one
     grade-written-answer.ts        # Grades a written training answer via the Gemini API
   actions/
     auth.ts                     # Server Actions: login, signup, quick demo sign-in, logout

@@ -1104,4 +1104,78 @@ overlap against the 7 already shown in "SLA at risk."
 
 ---
 
+## Stage 30: Per-visitor demo sandboxing
+
+A real concern, not a hypothetical one: this app's "quick demo sign-in"
+buttons let anyone become any of the 5 seeded accounts with one click,
+Manager's password is shown right on the login page for exactly that
+reason. But those 5 accounts are single shared database rows. If one
+visitor logs a real incident as Alex Rivera, and a total stranger also
+clicks "quick sign in as Alex Rivera" or as Manager, that stranger sees
+exactly what the first visitor typed. Nothing about which shared account
+happens to be active says who actually created something. That's both a
+privacy problem (strangers reading each other's typed-in content) and an
+open door for anyone to fill the shared queue with spam that every future
+visitor then has to wade through.
+
+The fix people usually reach for first, turning off self-registration or
+stripping down Manager's visibility, would have thrown away real,
+deliberate features: self-registration demonstrates real auth working
+end to end, and Manager's full visibility is the actual ITIL lesson
+that role teaches. Neither needed to go. What was missing was narrower:
+each visitor's own browser needed to be its own private sandbox,
+regardless of which named account is active in it.
+
+**The mechanism:** a new cookie, `demo_session`, completely separate
+from the login cookie, assigned to every browser on its first request
+by a new `proxy.ts` (Next.js renamed the old `middleware.ts`
+convention in the version this project is on, the build immediately
+flagged the deprecation, so this project uses the current name). Unlike
+the login cookie, it's never cleared by signing out, it identifies the
+visitor, not whichever account they're currently using. Every Incident,
+Problem, and Change got a nullable `demoSessionId` column, stamped at
+creation. A record is visible if that column is null (the app's
+existing seed data and anything generated before this shipped, shared
+baseline content for everyone, exactly like today) or it matches the
+current browser's own session. Every list, dashboard, and detail page
+across all three models got this one extra rule ANDed onto its existing
+role-based visibility query, and every detail page now uses that same
+check to 404 a direct URL guess at another visitor's private record, not
+just hide it from lists.
+
+Deliberately left out of this pass: Notifications (tied to a shared
+account already, a smaller residual leak, fixing it properly means
+making `buildNotification` async and touching its call sites everywhere,
+a bigger change than this one), and the Training Simulator (fixed,
+pre-authored content, not the "logged tickets" surface this was actually
+about).
+
+**A real, separate bug found along the way:** testing this required
+creating fresh incidents, which immediately failed with a ticket-number
+collision. `count() + 1` for the next `INC`/`PRB`/`CHG` number breaks the
+moment any row has ever been deleted, exactly the class of bug this
+project's own build log already flagged once (Stage 24), but that fix
+only ever went into a one-off cleanup script, never into the actual
+`createIncident`/`createProblem`/`createChange`/`generateIncomingTickets`
+actions themselves. Fixed properly this time, in one shared
+`src/lib/sequential-number.ts` helper used by all four, deriving the
+next number from the highest one that actually exists instead of a row
+count.
+
+Verified with two entirely separate, cookie-isolated browser contexts
+standing in for two real strangers, against the live database: visitor
+A logged an incident, then switched to Manager in the *same* browser and
+still saw it; visitor B, a fresh context, signed into the exact same
+shared Jordan Lee and Manager accounts and saw neither that incident nor
+found it in Search, while still seeing every pre-existing baseline
+ticket normally; guessing visitor A's incident URL directly from
+visitor B's browser 404'd. Repeated the create-then-check-from-a-
+stranger's-browser pattern for a standalone Problem, a standalone
+Change, and a "Simulate new tickets arriving" batch, all came back
+correctly private. All test data from this pass, identifiable as
+literally everything with a non-null `demoSessionId`, was deleted from
+the live database afterward.
+
+---
+
 *(Next stages get appended below as they're built.)*

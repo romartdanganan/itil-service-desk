@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import {
   CATEGORY_LABELS,
   CHANGE_TYPE_LABELS,
@@ -60,8 +61,10 @@ export default async function ChangeDetailPage({
     redirect("/");
   }
 
-  const change = await prisma.change.findUnique({
-    where: { id },
+  // findFirst, not findUnique, same reason as the other detail pages:
+  // lets the demo-session check ride alongside `id` in one query.
+  const change = await prisma.change.findFirst({
+    where: { id, ...demoSessionFilter(await getDemoSessionId()) },
     include: {
       requestedBy: true,
       approvedBy: true,

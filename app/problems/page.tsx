@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { CATEGORY_LABELS, PRIORITY_LABELS, isAgentRole } from "@/src/types/itil";
 import { IncidentCategory, Priority, ProblemStatus } from "@/app/generated/prisma/client";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -38,7 +39,8 @@ export default async function ProblemsPage({
     redirect("/");
   }
 
-  const filters: Prisma.ProblemWhereInput[] = [];
+  const demoSessionId = await getDemoSessionId();
+  const filters: Prisma.ProblemWhereInput[] = [demoSessionFilter(demoSessionId)];
   if (q.length > 0) {
     filters.push({
       OR: [
@@ -60,12 +62,12 @@ export default async function ProblemsPage({
 
   const [unowned, problems] = await Promise.all([
     prisma.problem.findMany({
-      where: { ownerId: null, status: { not: "CLOSED" } },
+      where: { ownerId: null, status: { not: "CLOSED" }, ...demoSessionFilter(demoSessionId) },
       orderBy: { createdAt: "asc" },
       include: { owner: true, raisedBy: true, _count: { select: { incidents: true } } },
     }),
     prisma.problem.findMany({
-      where: filters.length > 0 ? { AND: filters } : {},
+      where: { AND: filters },
       orderBy: { createdAt: "desc" },
       include: { owner: true, raisedBy: true, _count: { select: { incidents: true } } },
     }),

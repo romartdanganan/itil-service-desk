@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { createProblem } from "@/src/actions/problems";
 import {
   CATEGORY_LABELS,
@@ -28,7 +29,9 @@ export default async function NewProblemPage({
   }
 
   const sourceIncident = fromIncidentId
-    ? await prisma.incident.findUnique({ where: { id: fromIncidentId } })
+    ? await prisma.incident.findFirst({
+        where: { id: fromIncidentId, ...demoSessionFilter(await getDemoSessionId()) },
+      })
     : null;
 
   return (

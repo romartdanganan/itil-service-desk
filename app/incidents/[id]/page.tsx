@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import {
   CATEGORY_LABELS,
   IMPACT_LABELS,
@@ -70,9 +71,16 @@ export default async function IncidentDetailPage({
   const { id } = await params;
   const { created } = await searchParams;
 
+  const demoSessionId = await getDemoSessionId();
+
   const [incident, activeUser, agents] = await Promise.all([
-    prisma.incident.findUnique({
-      where: { id },
+    // findFirst, not findUnique: findUnique's `where` can't be extended
+    // with the demo-session check alongside `id`. Guessing another
+    // visitor's private incident id now 404s here, the same protection
+    // the lists already have, not just a cosmetic filter on what shows up
+    // in a queue.
+    prisma.incident.findFirst({
+      where: { id, ...demoSessionFilter(demoSessionId) },
       include: {
         requester: true,
         assignee: true,
@@ -113,7 +121,7 @@ export default async function IncidentDetailPage({
   const openProblems =
     canWorkTicket && incident.problem === null
       ? await prisma.problem.findMany({
-          where: { status: { not: "CLOSED" } },
+          where: { status: { not: "CLOSED" }, ...demoSessionFilter(demoSessionId) },
           orderBy: { createdAt: "desc" },
         })
       : [];

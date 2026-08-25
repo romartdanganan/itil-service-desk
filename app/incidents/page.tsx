@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { CATEGORY_LABELS, PRIORITY_LABELS } from "@/src/types/itil";
 import { Role, IncidentCategory, Priority, IncidentStatus } from "@/app/generated/prisma/client";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -52,7 +53,8 @@ export default async function SearchIncidentsPage({
     };
   }
 
-  const filters: Prisma.IncidentWhereInput[] = [visibilityWhere];
+  const demoSessionId = await getDemoSessionId();
+  const filters: Prisma.IncidentWhereInput[] = [visibilityWhere, demoSessionFilter(demoSessionId)];
   if (q.length > 0) {
     // `mode: "insensitive"` matters here specifically because this ran on
     // SQLite during earlier development, where `contains` compiles to a

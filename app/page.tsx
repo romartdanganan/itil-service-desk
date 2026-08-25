@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { ROLE_LABELS } from "@/src/types/itil";
 import { Role } from "@/app/generated/prisma/client";
 import { IncidentGroup, PageHeader, isOpenStatus, isOverdue, isAtRisk } from "@/src/components/incident-list";
@@ -72,9 +73,15 @@ export default async function Home() {
     redirect("/login");
   }
 
+  // Which browser this is, on top of which account is signed in, see
+  // src/lib/demo-session.ts for why both matter: every seeded account is
+  // shared, so role alone isn't enough to keep one visitor's tickets from
+  // showing up for a total stranger who happens to click the same one.
+  const demoSessionId = await getDemoSessionId();
+
   if (activeUser.role === Role.CUSTOMER) {
     const myIncidents = await prisma.incident.findMany({
-      where: { requesterId: activeUser.id },
+      where: { requesterId: activeUser.id, ...demoSessionFilter(demoSessionId) },
       orderBy: { createdAt: "desc" },
       include: { assignee: true, requester: true },
     });
@@ -107,6 +114,7 @@ export default async function Home() {
 
   if (activeUser.role === Role.MANAGER) {
     const incidents = await prisma.incident.findMany({
+      where: demoSessionFilter(demoSessionId),
       orderBy: { createdAt: "desc" },
       include: { assignee: true, requester: true },
     });
@@ -166,12 +174,21 @@ export default async function Home() {
   // sitting in their tier's queue, waiting to be taken.
   const [myTickets, queueTickets] = await Promise.all([
     prisma.incident.findMany({
-      where: { assigneeId: activeUser.id, status: { in: [...OPEN_STATUSES] } },
+      where: {
+        assigneeId: activeUser.id,
+        status: { in: [...OPEN_STATUSES] },
+        ...demoSessionFilter(demoSessionId),
+      },
       orderBy: { createdAt: "desc" },
       include: { assignee: true, requester: true },
     }),
     prisma.incident.findMany({
-      where: { assigneeId: null, currentTier: activeUser.role, status: "NEW" },
+      where: {
+        assigneeId: null,
+        currentTier: activeUser.role,
+        status: "NEW",
+        ...demoSessionFilter(demoSessionId),
+      },
       orderBy: { createdAt: "asc" },
       include: { assignee: true, requester: true },
     }),

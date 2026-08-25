@@ -57,7 +57,10 @@ export default async function LoginPage() {
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               This is a portfolio demo — every account below uses the same
               password (<code>{DEMO_PASSWORD}</code>) and is safe to sign
-              into. Pick a role to explore the app as that person.
+              into. Pick a role to explore the app as that person. Anything
+              you log or generate stays private to your own browser, other
+              visitors trying the same demo accounts won&apos;t see it, and
+              you won&apos;t see theirs.
             </p>
           </div>
           <div className="flex flex-col gap-2">

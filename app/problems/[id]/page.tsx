@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import {
   CATEGORY_LABELS,
   IMPACT_LABELS,
@@ -62,9 +63,13 @@ export default async function ProblemDetailPage({
     redirect("/");
   }
 
+  const demoSessionId = await getDemoSessionId();
+
   const [problem, agents, changes] = await Promise.all([
-    prisma.problem.findUnique({
-      where: { id },
+    // findFirst, not findUnique, same reason as the incident detail page:
+    // lets the demo-session check ride alongside `id` in one query.
+    prisma.problem.findFirst({
+      where: { id, ...demoSessionFilter(demoSessionId) },
       include: {
         owner: true,
         raisedBy: true,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { CATEGORY_LABELS, isAgentRole } from "@/src/types/itil";
 import { IncidentCategory, ChangeType, ChangeRisk, ChangeStatus } from "@/app/generated/prisma/client";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -39,7 +40,8 @@ export default async function ChangesPage({
     redirect("/");
   }
 
-  const filters: Prisma.ChangeWhereInput[] = [];
+  const demoSessionId = await getDemoSessionId();
+  const filters: Prisma.ChangeWhereInput[] = [demoSessionFilter(demoSessionId)];
   if (q.length > 0) {
     filters.push({
       OR: [
@@ -65,16 +67,21 @@ export default async function ChangesPage({
   const [awaitingApproval, changes] = await Promise.all([
     prisma.change.findMany({
       where: {
-        OR: [
-          { status: "REQUESTED" },
-          { status: "IN_PROGRESS", changeType: "EMERGENCY", approvedById: null },
+        AND: [
+          {
+            OR: [
+              { status: "REQUESTED" },
+              { status: "IN_PROGRESS", changeType: "EMERGENCY", approvedById: null },
+            ],
+          },
+          demoSessionFilter(demoSessionId),
         ],
       },
       orderBy: { createdAt: "asc" },
       include: { requestedBy: true },
     }),
     prisma.change.findMany({
-      where: filters.length > 0 ? { AND: filters } : {},
+      where: { AND: filters },
       orderBy: { createdAt: "desc" },
       include: { requestedBy: true },
     }),

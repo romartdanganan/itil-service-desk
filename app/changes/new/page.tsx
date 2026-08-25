@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId, demoSessionFilter } from "@/src/lib/demo-session";
 import { createChange } from "@/src/actions/changes";
 import { CATEGORY_LABELS, CHANGE_TYPE_LABELS, CHANGE_RISK_LABELS, isAgentRole } from "@/src/types/itil";
 import { IncidentCategory, ChangeType, ChangeRisk } from "@/app/generated/prisma/client";
@@ -23,7 +24,9 @@ export default async function NewChangePage({
   }
 
   const sourceProblem = fromProblemId
-    ? await prisma.problem.findUnique({ where: { id: fromProblemId } })
+    ? await prisma.problem.findFirst({
+        where: { id: fromProblemId, ...demoSessionFilter(await getDemoSessionId()) },
+      })
     : null;
 
   return (

@@ -136,11 +136,23 @@ model Incident {
   problem   Problem? @relation(fields: [problemId], references: [id])
   problemId String?
 
+  // Which browser created this, not which account, see
+  // src/lib/demo-session.ts. Null means shared baseline content (the
+  // app's seed data, or anything generated before this field existed):
+  // visible to everyone. A real value scopes it to one visitor's own
+  // private demo sandbox, since every seeded account (Alex Rivera,
+  // Jordan Lee, even Manager) is a single shared row anyone can sign
+  // into with one click, nothing about which named account is active
+  // says who actually typed this.
+  demoSessionId String?
+
   activities    IncidentActivity[]
   notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([demoSessionId])
 }
 
 enum IncidentCategory {
@@ -308,8 +320,14 @@ model Problem {
 
   activities ProblemActivity[]
 
+  // Same per-browser sandboxing as Incident.demoSessionId, see the
+  // comment there and src/lib/demo-session.ts.
+  demoSessionId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([demoSessionId])
 }
 
 enum ProblemStatus {
@@ -416,8 +434,14 @@ model Change {
 
   activities ChangeActivity[]
 
+  // Same per-browser sandboxing as Incident.demoSessionId, see the
+  // comment there and src/lib/demo-session.ts.
+  demoSessionId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([demoSessionId])
 }
 
 enum ChangeType {

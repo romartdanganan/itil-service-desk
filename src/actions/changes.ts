@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId } from "@/src/lib/demo-session";
+import { nextSequentialNumber } from "@/src/lib/sequential-number";
 import { isAgentRole } from "@/src/types/itil";
 import { ChangeType } from "@/app/generated/prisma/client";
 import type { ChangeRisk, IncidentCategory } from "@/app/generated/prisma/client";
@@ -63,10 +65,22 @@ export async function createChange(formData: FormData) {
     throw new Error("The planned window must be a valid start and end, with end after start.");
   }
 
-  // Same cosmetic, count-based numbering approach as createIncident and
-  // createProblem, just with a "CHG" prefix.
-  const existingCount = await prisma.change.count();
-  const changeNumber = `CHG${String(existingCount + 1).padStart(6, "0")}`;
+  // See src/lib/sequential-number.ts for why this is derived from the
+  // highest existing change number, not a row count.
+  const lastChange = await prisma.change.findFirst({
+    orderBy: { changeNumber: "desc" },
+    select: { changeNumber: true },
+  });
+  const changeNumber = nextSequentialNumber(lastChange?.changeNumber ?? null, "CHG");
+  const demoSessionId = await getDemoSessionId();
+
+  let linkedProblemId: string | undefined;
+  if (typeof sourceProblemId === "string" && sourceProblemId.length > 0) {
+    const sourceProblem = await prisma.problem.findUnique({ where: { id: sourceProblemId } });
+    if (sourceProblem && (!sourceProblem.demoSessionId || sourceProblem.demoSessionId === demoSessionId)) {
+      linkedProblemId = sourceProblem.id;
+    }
+  }
 
   const change = await prisma.change.create({
     data: {
@@ -82,9 +96,8 @@ export async function createChange(formData: FormData) {
       plannedEnd: end,
       status: changeType === ChangeType.STANDARD ? "APPROVED" : "REQUESTED",
       requestedById: activeUser.id,
-      ...(typeof sourceProblemId === "string" && sourceProblemId.length > 0
-        ? { sourceProblemId }
-        : {}),
+      demoSessionId,
+      ...(linkedProblemId ? { sourceProblemId: linkedProblemId } : {}),
     },
   });
 

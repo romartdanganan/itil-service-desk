@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/lib/prisma";
 import { getActiveUser } from "@/src/lib/session";
+import { getDemoSessionId } from "@/src/lib/demo-session";
+import { nextSequentialNumber } from "@/src/lib/sequential-number";
 import { derivePriority, calculateSlaDueDates } from "@/src/types/itil";
 import type { Impact, Urgency, IncidentCategory } from "@/app/generated/prisma/client";
 
@@ -44,15 +46,13 @@ export async function createIncident(formData: FormData) {
   const priority = derivePriority(impact as Impact, urgency as Urgency);
   const { slaResponseDueAt, slaResolveDueAt } = calculateSlaDueDates(priority);
 
-  // Human-readable ticket numbers (INC000001, INC000002, ...) are cosmetic
-  // — the database's real primary key is the `id` field. Counting existing
-  // rows to pick the next number is simple but not safe against two people
-  // submitting at the exact same instant (both could count the same total
-  // and pick the same number); a real production system would use a
-  // database sequence instead. Fine for a single-user demo, worth knowing
-  // the limitation.
-  const existingCount = await prisma.incident.count();
-  const ticketNumber = `INC${String(existingCount + 1).padStart(6, "0")}`;
+  // See src/lib/sequential-number.ts for why this is derived from the
+  // highest existing ticket number, not a row count.
+  const lastIncident = await prisma.incident.findFirst({
+    orderBy: { ticketNumber: "desc" },
+    select: { ticketNumber: true },
+  });
+  const ticketNumber = nextSequentialNumber(lastIncident?.ticketNumber ?? null, "INC");
 
   const incident = await prisma.incident.create({
     data: {
@@ -67,6 +67,7 @@ export async function createIncident(formData: FormData) {
       requesterId: activeUser.id,
       slaResponseDueAt,
       slaResolveDueAt,
+      demoSessionId: await getDemoSessionId(),
     },
   });
 
