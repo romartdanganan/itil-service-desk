@@ -64,6 +64,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           Changes
         </Link>
       )}
+      {activeUser && isAgentRole(activeUser.role) && (
+        <Link href="/knowledge-base" className={NAV_LINK_CLASS}>
+          Knowledge Base
+        </Link>
+      )}
       {activeUser && activeUser.role === Role.MANAGER && (
         <Link href="/reports" className={NAV_LINK_CLASS}>
           Reports

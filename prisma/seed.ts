@@ -330,6 +330,62 @@ async function main() {
     },
   });
 
+  // One worked Knowledge Base example, published and written up from the
+  // Problem seeded above, same "give a fresh sign-in something real to
+  // look at" reasoning as the Problem/Change/Service Request examples.
+  // Plus one left as a DRAFT, so the "awaiting publish" queue on a fresh
+  // seed isn't empty either, the real distinction this feature exists to
+  // teach (a draft isn't searchable or linkable yet).
+  const posArticle = await prisma.knowledgeArticle.create({
+    data: {
+      articleNumber: "KB000001",
+      title: "POS terminals losing connection store-wide",
+      category: "NETWORK",
+      symptoms:
+        "All card payment terminals at a branch show 'connection lost' at the same time, usually during peak hours. Cash payments still work.",
+      solution:
+        "Power-cycle the in-store network switch. Terminals reconnect automatically within about 2 minutes. A permanent fix (switch replacement) may already be scheduled or complete, check the linked problem for the current status before applying the workaround.",
+      status: "PUBLISHED",
+      authorId: l3.id,
+      sourceProblemId: problem.id,
+    },
+  });
+
+  await prisma.knowledgeArticleActivity.createMany({
+    data: [
+      {
+        articleId: posArticle.id,
+        actorId: l3.id,
+        type: "CREATED",
+        message: `${l3.name} wrote this article up from problem ${problem.problemNumber}.`,
+      },
+      { articleId: posArticle.id, actorId: l3.id, type: "PUBLISHED", message: `${l3.name} published this article.` },
+    ],
+  });
+
+  const vpnDraft = await prisma.knowledgeArticle.create({
+    data: {
+      articleNumber: "KB000002",
+      title: "Requesting VPN access for remote work",
+      category: "ACCESS",
+      symptoms:
+        "A remote employee asks how to get VPN access set up, or says they can't reach internal systems from home.",
+      solution:
+        "Confirm the request is coming through an approved Service Request (VPN access needs manager sign-off), then provision the account and send the client setup guide.",
+      status: "DRAFT",
+      authorId: l1.id,
+    },
+  });
+
+  await prisma.knowledgeArticleActivity.create({
+    data: {
+      articleId: vpnDraft.id,
+      actorId: l1.id,
+      type: "CREATED",
+      message: `${l1.name} wrote this article as a draft.`,
+    },
+  });
+
   // NPC customer pool for the "simulate incoming tickets" generator —
   // real accounts (nobody logs into them, but the requesterId foreign
   // key needs a real User row), reusing the demo password hash since
@@ -376,6 +432,7 @@ async function main() {
     problems: 1,
     changes: 1,
     serviceRequests: 2,
+    knowledgeArticles: 2,
     trainingScenarios: TRAINING_SCENARIOS.length,
   });
 }

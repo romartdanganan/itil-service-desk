@@ -63,6 +63,10 @@ model User {
   approvedServiceRequests  ServiceRequest[]         @relation("ServiceRequestApprovedBy")
   serviceRequestActivities ServiceRequestActivity[]
 
+  // Knowledge Management (v5, agent/manager only, see KnowledgeArticle below).
+  authoredKnowledgeArticles  KnowledgeArticle[]         @relation("KnowledgeArticleAuthor")
+  knowledgeArticleActivities KnowledgeArticleActivity[]
+
   createdAt DateTime @default(now())
 }
 
@@ -141,6 +145,15 @@ model Incident {
   // formal investigation, does this get set. See Problem below.
   problem   Problem? @relation(fields: [problemId], references: [id])
   problemId String?
+
+  // The knowledge base article documenting this incident's fix, if an
+  // agent has attached one (v5, see KnowledgeArticle below). A different
+  // link from `problem` above on purpose: linking a Problem is about
+  // investigating a root cause, while this is about "here's a
+  // reusable, already-written fix," most incidents get one without ever
+  // needing a formal Problem investigation at all.
+  knowledgeArticle   KnowledgeArticle? @relation(fields: [knowledgeArticleId], references: [id])
+  knowledgeArticleId String?
 
   // Which browser created this, not which account, see
   // src/lib/demo-session.ts. Null means shared baseline content (the
@@ -223,6 +236,7 @@ enum ActivityType {
   RESOLVED
   CLOSED
   PROBLEM_LINKED
+  ARTICLE_LINKED
 }
 
 // A simulated email notification — this app never sends a real email
@@ -323,6 +337,12 @@ model Problem {
   // a Change is the formal, approved, scheduled work of actually doing
   // it. See Change below.
   changes Change[]
+
+  // Every knowledge base article written up from this problem's fix, once
+  // it's judged worth documenting for general reuse rather than staying a
+  // one-off workaround/root cause on this record alone (v5, see
+  // KnowledgeArticle.sourceProblem for the other side of this link).
+  knowledgeArticles KnowledgeArticle[]
 
   activities ProblemActivity[]
 
@@ -788,4 +808,101 @@ model Shift {
   // is exactly how the summary page below knows whether to render "in
   // progress" or "complete".
   completedAt DateTime?
+}
+
+// The Knowledge Base: reusable, searchable documentation of how to fix or
+// answer something, ITIL's Knowledge Management process (the SKMS, or
+// Service Knowledge Management System, in the full framework). This is
+// genuinely different from a Problem's Known Error workaround, not a
+// duplicate of it: a Known Error only exists once a formal root-cause
+// investigation is already underway, while most of what a real service
+// desk writes up (how to map a network drive, how to request VPN access)
+// never needed a Problem investigation at all, it's just a common
+// question worth answering once and reusing forever. An article CAN
+// optionally originate from a resolved Problem (see sourceProblem below)
+// once that investigation's fix is worth writing up for general reuse,
+// but most articles are authored directly. Agent/manager only to author
+// or maintain, same as Problem/Change, never customer-facing.
+model KnowledgeArticle {
+  id            String @id @default(cuid())
+  // Human-facing reference, e.g. "KB000001", same cosmetic-numbering
+  // approach as Incident.ticketNumber / Problem.problemNumber / etc.
+  articleNumber String @unique
+
+  title    String
+  category IncidentCategory
+
+  // What the issue looks like, or how it's normally described/asked,
+  // searched against alongside title, this is the "symptom" half a real
+  // knowledge base search matches on before anyone reads the fix.
+  symptoms String
+  // The actual fix or answer, written as steps an agent can follow and
+  // hand off directly, the actual payoff of documenting this at all.
+  solution String
+
+  // A real knowledge base is curated, not a raw dumping ground: DRAFT is
+  // being written and doesn't show up in search or get linked to a ticket
+  // yet, PUBLISHED is live and reusable, RETIRED is outdated (a fix that
+  // no longer applies) but kept on record rather than deleted, and can be
+  // re-published later if it turns out to still be useful.
+  status KnowledgeArticleStatus @default(DRAFT)
+
+  author   User   @relation("KnowledgeArticleAuthor", fields: [authorId], references: [id])
+  authorId String
+
+  // The Problem this article's fix came from, if any. Nullable: most
+  // articles are authored directly rather than derived from a formal
+  // investigation, see the model comment above.
+  sourceProblem   Problem? @relation(fields: [sourceProblemId], references: [id])
+  sourceProblemId String?
+
+  // Every incident an agent has explicitly attached this article to, "this
+  // is the documented fix for what happened here." See
+  // Incident.knowledgeArticle for the reverse side and the real payoff:
+  // the solution text shows up directly on the incident page the moment
+  // it's linked, the same "don't make the next agent start from scratch"
+  // idea Problem's workaround-linking already teaches.
+  incidents Incident[]
+
+  activities KnowledgeArticleActivity[]
+
+  // Same per-browser sandboxing as every other process model, see the
+  // comment on Incident.demoSessionId and src/lib/demo-session.ts.
+  demoSessionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([demoSessionId])
+}
+
+enum KnowledgeArticleStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+// Same purpose and shape as ProblemActivity/ChangeActivity/etc., its own
+// table for the same reason: a plain articleId foreign key over a generic
+// "activity on some entity" table.
+model KnowledgeArticleActivity {
+  id        String           @id @default(cuid())
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id])
+  articleId String
+
+  actor   User   @relation(fields: [actorId], references: [id])
+  actorId String
+
+  type    KnowledgeArticleActivityType
+  message String
+
+  createdAt DateTime @default(now())
+}
+
+enum KnowledgeArticleActivityType {
+  CREATED
+  EDITED
+  PUBLISHED
+  RETIRED
+  INCIDENT_LINKED
 }

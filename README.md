@@ -26,7 +26,7 @@ This app simulates the day-to-day tool an IT service desk agent works in: loggin
 - **Simulated incoming tickets** — a real support queue never sits empty; without something refilling it, a practice queue does. Any agent or manager can click **"🔄 Simulate new tickets arriving"** to inject a fresh batch of realistic tickets (`src/data/incident-templates.ts`, 18 templates across every category), each attributed to one of a small pool of fictional employees (`src/data/npc-employees.ts`) rather than the same one repeated name. New tickets always start at the L1 tier — matching real ITIL, and matching how they'd need to actually be escalated up by hand to reach L2/L3, not pre-placed there.
 - **In-app guidance, not just docs** — each dashboard (customer, agent, manager) opens with a plain-language explanation of what that role is for and what to do next, with ITSM terms defined inline rather than assumed. The goal is that someone with zero prior ITSM vocabulary can open the app and understand what they're looking at without reading external documentation first.
 
-This project builds one ITIL process completely before expanding to the next; four processes are now built (Incident, Problem, Change, Service Request).
+This project builds one ITIL process completely before expanding to the next; five processes are now built (Incident, Problem, Change, Service Request, Knowledge Management).
 
 ## Problem Management
 
@@ -40,6 +40,10 @@ This project builds one ITIL process completely before expanding to the next; fo
 
 `/requests` is customer-facing, same as Incident, unlike Problem/Change: anyone can ask IT for something routine, a password reset, a new laptop, access to a shared folder, without anything actually being broken. That distinction from Incident Management is the point of this process existing at all. A small catalog of common, named requests (`src/data/service-request-catalog.ts`) pre-fills the form with the right category and approval requirement already decided, or describe something outside the catalog and it defaults to needing sign-off, since only pre-approved, standard asks skip that step. `STANDARD` requests (a password reset, a routine software install) go straight from `SUBMITTED` to the shared fulfillment queue; `APPROVAL_REQUIRED` requests (new hardware, non-standard access) sit in `PENDING_APPROVAL` until a manager approves or rejects them, a real third variant of "does this need sign-off" alongside Incident's tiered escalation and Change's Standard/Normal/Emergency split. No L1/L2/L3 ladder here on purpose: real service desks fulfill routine requests directly rather than escalating them through the same skill tiers used for troubleshooting an actual fault. See `ServiceRequest` / `ServiceRequestActivity` in `prisma/schema.prisma` and `src/actions/service-request-workflow.ts` for the lifecycle logic.
 
+## Knowledge Management
+
+`/knowledge-base` (agent and manager only, never customer-facing) is a searchable library of documented fixes and answers, so the next agent who runs into something already answered doesn't start from scratch. This is a genuinely different thing from a Problem's Known Error, not a duplicate of it: a Known Error only exists once a formal root-cause investigation is already underway, while most of what a real service desk writes up (how to map a network drive, how to request VPN access) never needed one at all, it's just a common question worth answering once and reusing forever. An article can be written up directly, or from a resolved Problem's own page (its workaround or root cause pre-fills the draft), tracked with its own lifecycle: `DRAFT` (being written, not yet searchable or linkable), `PUBLISHED` (live and reusable), and `RETIRED` (outdated, kept on record rather than deleted, and can be re-published later). The real payoff shows up on the incident itself, same idea as Problem's workaround-linking: once an agent links a published article to an open ticket, its solution text shows up directly on that ticket's page, and the assigned agent gets notified if someone else made the link. See `KnowledgeArticle` / `KnowledgeArticleActivity` in `prisma/schema.prisma` and `src/actions/knowledge.ts` / `src/actions/knowledge-workflow.ts` for the lifecycle logic.
+
 ## Training Simulator
 
 `/training` is a practice mode, separate from the real ticket queue: a report comes in, written the way it would actually arrive, including some vagueness on purpose, you pick your first diagnostic step from a set of multiple-choice options, and immediately see whether that choice was right (with an explanation either way) followed by how the issue was actually resolved. Attempts are tracked per user (retrying is expected, the goal is getting it right eventually, not on the first try), so `/training` also shows a running score. 18 scenarios across every incident category (Network, Software, Hardware, Access, Account, Other) and all three difficulty levels, each teaching a distinct triage or security-awareness lesson, including one about pushing back on a senior executive pressuring for a policy exception, and one about recovering a lost authenticator instead of just disabling two-factor auth. See `prisma/schema.prisma` (`TrainingScenario` / `TrainingChoice` / `TrainingAttempt`) and `src/data/training-scenarios.ts` for the content.
@@ -52,7 +56,7 @@ This project builds one ITIL process completely before expanding to the next; fo
 
 ## Reports
 
-`/reports` is manager-only, and unlike everywhere else in the app, it isn't hands-on ticket work: it's the analytics/leadership side of the job, watching SLA compliance, spotting where the backlog is piling up, and reporting on how the desk is doing overall. Every number is computed live from the same Incident/Problem/Change/Service Request data the rest of the app already generates, no separate mock dataset: SLA compliance overall and broken down by priority, average resolution time by priority, ticket volume by category, current unclaimed backlog by support tier, the escalation rate (what share of tickets an L1 agent couldn't resolve alone), and a summary row across the other three processes (active Known Errors, change success rate, requests awaiting approval, average request fulfillment time). Rendered as plain server-side percentage-width bars, no charting library and no client JavaScript, consistent with the rest of the app. See `app/reports/page.tsx` and `src/components/bar-chart.tsx`.
+`/reports` is manager-only, and unlike everywhere else in the app, it isn't hands-on ticket work: it's the analytics/leadership side of the job, watching SLA compliance, spotting where the backlog is piling up, and reporting on how the desk is doing overall. Every number is computed live from the same Incident/Problem/Change/Service Request/Knowledge Base data the rest of the app already generates, no separate mock dataset: SLA compliance overall and broken down by priority, average resolution time by priority, ticket volume by category, current unclaimed backlog by support tier, the escalation rate (what share of tickets an L1 agent couldn't resolve alone), and a summary row across the other four processes (active Known Errors, change success rate, requests awaiting approval, average request fulfillment time, published/draft knowledge base articles). Rendered as plain server-side percentage-width bars, no charting library and no client JavaScript, consistent with the rest of the app. See `app/reports/page.tsx` and `src/components/bar-chart.tsx`.
 
 ## Tech Stack
 
@@ -88,6 +92,10 @@ app/
     page.tsx                    # Catalog + search/browse, plus "awaiting approval"/"unclaimed queue"
     new/page.tsx                 # "Log a new request" form, pre-filled from a catalog item via ?catalog=
     [id]/page.tsx                 # Request detail page, approval/fulfillment actions, activity timeline
+  knowledge-base/                # Agent/manager only, never customer-facing
+    page.tsx                    # Search/browse every article, plus a "drafts awaiting publish" queue
+    new/page.tsx                 # "Write a knowledge base article" form, optionally pre-filled from a problem
+    [id]/page.tsx                 # Article detail page, publish/retire/edit, linked incidents, activity timeline
   reports/
     page.tsx                    # Manager-only KPI dashboard: SLA compliance, backlog, volume, escalation rate
   training/
@@ -98,9 +106,9 @@ app/
 prisma/
   schema.prisma              # Database schema: User, Incident, IncidentActivity, Problem, ProblemActivity,
                                # Change, ChangeActivity, ServiceRequest, ServiceRequestActivity,
-                               # Notification, Shift, Training* models
+                               # KnowledgeArticle, KnowledgeArticleActivity, Notification, Shift, Training* models
   seed.ts                     # Demo data: one hashed-password user per role, sample incidents,
-                                # a worked problem/change/service-request example, training scenarios
+                                # a worked problem/change/service-request/knowledge-article example, training scenarios
   migrations/                 # Versioned history of schema changes
 src/
   lib/
@@ -129,6 +137,9 @@ src/
     service-requests.ts            # Server Action: submit a new service request (from the catalog or custom)
     service-request-workflow.ts     # Server Actions for the request lifecycle: approve, reject, take,
                                      # reassign, fulfill, close, cancel, comment
+    knowledge.ts                   # Server Actions: author a new article (optionally from a source problem),
+                                     # link a published article to an incident
+    knowledge-workflow.ts           # Server Actions for the article lifecycle: publish, retire, edit content
     training.ts                   # Server Actions: record a freeform training attempt, grade a
                                     # written-response follow-up answer
     shift.ts                      # Server Actions: start a shift, answer the current call in one
@@ -140,6 +151,7 @@ src/
     problem-list.tsx                # Shared problem-list rendering (used by the /problems search page)
     change-list.tsx                 # Shared change-list rendering (used by /changes and the Problem page)
     service-request-list.tsx         # Shared request-list rendering (used by the /requests page)
+    knowledge-article-list.tsx       # Shared article-list rendering (used by /knowledge-base and the Problem page)
     training-call.tsx               # Shared call/question/reveal UI (used by freeform practice and Shift Mode)
     written-response-step.tsx        # The graded written-answer step, freeform practice only
     bar-chart.tsx                   # Plain server-rendered percentage-width bars, used on /reports

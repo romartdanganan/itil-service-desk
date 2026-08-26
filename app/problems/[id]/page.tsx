@@ -22,6 +22,7 @@ import {
 } from "@/src/actions/problem-workflow";
 import { IncidentListItem } from "@/src/components/incident-list";
 import { ChangeListItem } from "@/src/components/change-list";
+import { KnowledgeArticleListItem } from "@/src/components/knowledge-article-list";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,7 @@ export default async function ProblemDetailPage({
 
   const demoSessionId = await getDemoSessionId();
 
-  const [problem, agents, changes] = await Promise.all([
+  const [problem, agents, changes, knowledgeArticles] = await Promise.all([
     // findFirst, not findUnique, same reason as the incident detail page:
     // lets the demo-session check ride alongside `id` in one query.
     prisma.problem.findFirst({
@@ -87,6 +88,11 @@ export default async function ProblemDetailPage({
     prisma.change.findMany({
       where: { sourceProblemId: id },
       include: { requestedBy: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.knowledgeArticle.findMany({
+      where: { sourceProblemId: id },
+      include: { author: true, _count: { select: { incidents: true } } },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -339,6 +345,35 @@ export default async function ProblemDetailPage({
             <ul className="mt-3 flex flex-col gap-3">
               {changes.map((c) => (
                 <ChangeListItem key={c.id} change={c} />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
+              Knowledge base articles from this problem ({knowledgeArticles.length})
+            </h2>
+            {(problem.workaround || problem.rootCause) && (
+              <Link
+                href={`/knowledge-base/new?fromProblemId=${problem.id}`}
+                className="rounded-full border border-black/10 px-3 py-1 text-xs font-medium dark:border-white/10"
+              >
+                Write up an article
+              </Link>
+            )}
+          </div>
+          {knowledgeArticles.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              {problem.workaround || problem.rootCause
+                ? "Not written up yet. Worth documenting once this fix is likely to come up again."
+                : "Nothing to write up yet, record a workaround or root cause first."}
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-3">
+              {knowledgeArticles.map((article) => (
+                <KnowledgeArticleListItem key={article.id} article={article} />
               ))}
             </ul>
           )}

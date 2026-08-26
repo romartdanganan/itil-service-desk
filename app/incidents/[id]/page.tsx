@@ -23,6 +23,7 @@ import {
   addComment,
 } from "@/src/actions/incident-workflow";
 import { linkIncidentToProblem } from "@/src/actions/problems";
+import { linkArticleToIncident } from "@/src/actions/knowledge";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,7 @@ export default async function IncidentDetailPage({
         requester: true,
         assignee: true,
         problem: true,
+        knowledgeArticle: true,
         activities: { include: { actor: true }, orderBy: { createdAt: "asc" } },
       },
     }),
@@ -128,6 +130,17 @@ export default async function IncidentDetailPage({
     canWorkTicket && incident.problem === null
       ? await prisma.problem.findMany({
           where: { status: { not: "CLOSED" }, ...demoSessionFilter(demoSessionId) },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+
+  // Same "only fetch what's actually needed" reasoning as openProblems
+  // above: only relevant to an agent viewing a ticket that isn't linked
+  // to an article yet, and only published articles are eligible to link.
+  const publishedArticles =
+    canWorkTicket && incident.knowledgeArticle === null
+      ? await prisma.knowledgeArticle.findMany({
+          where: { status: "PUBLISHED", ...demoSessionFilter(demoSessionId) },
           orderBy: { createdAt: "desc" },
         })
       : [];
@@ -311,6 +324,72 @@ export default async function IncidentDetailPage({
                   className="self-start rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium dark:border-white/10"
                 >
                   Flag as new problem
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Knowledge base: a different link from problem management above,
+            "here's a reusable, already-written fix," not "investigate the
+            root cause." Once linked, the solution text shows up directly
+            here, the same "don't make the next agent start from scratch"
+            payoff Problem's workaround-linking already teaches. */}
+        {canWorkTicket && (
+          <div className="rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+            <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
+              Knowledge base
+            </h2>
+            {incident.knowledgeArticle ? (
+              <div className="mt-2">
+                <Link
+                  href={`/knowledge-base/${incident.knowledgeArticle.id}`}
+                  className="text-sm font-medium text-black underline dark:text-zinc-50"
+                >
+                  {incident.knowledgeArticle.articleNumber}: {incident.knowledgeArticle.title}
+                </Link>
+                <div className="mt-3 rounded-md bg-emerald-50 p-3 text-sm dark:bg-emerald-950/40">
+                  <p className="font-medium text-emerald-900 dark:text-emerald-300">
+                    Documented solution
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-emerald-800 dark:text-emerald-400">
+                    {incident.knowledgeArticle.solution}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="text-xs text-zinc-500">
+                  Not linked to a knowledge base article yet.
+                </p>
+                {publishedArticles.length > 0 && (
+                  <form action={linkArticleToIncident} className="flex gap-2">
+                    <input type="hidden" name="incidentId" value={incident.id} />
+                    <select
+                      name="articleId"
+                      required
+                      defaultValue=""
+                      className="flex-1 rounded border border-black/10 bg-white px-3 py-1.5 text-xs dark:border-white/10 dark:bg-zinc-900"
+                    >
+                      <option value="" disabled>
+                        Link a published article...
+                      </option>
+                      {publishedArticles.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.articleNumber}: {a.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium dark:border-white/10">
+                      Link
+                    </button>
+                  </form>
+                )}
+                <Link
+                  href="/knowledge-base"
+                  className="self-start rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium dark:border-white/10"
+                >
+                  Browse the knowledge base
                 </Link>
               </div>
             )}

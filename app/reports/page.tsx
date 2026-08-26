@@ -39,23 +39,25 @@ export default async function ReportsPage() {
   const demoSessionId = await getDemoSessionId();
   const filter = demoSessionFilter(demoSessionId);
 
-  const [incidents, incidentEscalations, problems, changes, serviceRequests] = await Promise.all([
-    prisma.incident.findMany({ where: filter }),
-    // Distinct incident ids that were escalated at least once, an
-    // escalation rate needs "how many tickets", not "how many
-    // escalation events" (one ticket can be escalated more than once).
-    prisma.incidentActivity.findMany({
-      where: { type: "ESCALATED", incident: filter },
-      select: { incidentId: true },
-      distinct: ["incidentId"],
-    }),
-    prisma.problem.findMany({ where: filter, select: { status: true, ownerId: true } }),
-    prisma.change.findMany({ where: filter, select: { status: true } }),
-    prisma.serviceRequest.findMany({
-      where: filter,
-      select: { status: true, createdAt: true, fulfilledAt: true },
-    }),
-  ]);
+  const [incidents, incidentEscalations, problems, changes, serviceRequests, knowledgeArticles] =
+    await Promise.all([
+      prisma.incident.findMany({ where: filter }),
+      // Distinct incident ids that were escalated at least once, an
+      // escalation rate needs "how many tickets", not "how many
+      // escalation events" (one ticket can be escalated more than once).
+      prisma.incidentActivity.findMany({
+        where: { type: "ESCALATED", incident: filter },
+        select: { incidentId: true },
+        distinct: ["incidentId"],
+      }),
+      prisma.problem.findMany({ where: filter, select: { status: true, ownerId: true } }),
+      prisma.change.findMany({ where: filter, select: { status: true } }),
+      prisma.serviceRequest.findMany({
+        where: filter,
+        select: { status: true, createdAt: true, fulfilledAt: true },
+      }),
+      prisma.knowledgeArticle.findMany({ where: filter, select: { status: true } }),
+    ]);
 
   const totalIncidents = incidents.length;
   const openIncidents = incidents.filter(
@@ -127,6 +129,9 @@ export default async function ReportsPage() {
         (60 * 60 * 1000)
       : null;
 
+  const publishedArticleCount = knowledgeArticles.filter((a) => a.status === "PUBLISHED").length;
+  const draftArticleCount = knowledgeArticles.filter((a) => a.status === "DRAFT").length;
+
   function formatPct(value: number | null): string {
     return value === null ? "n/a" : `${Math.round(value)}%`;
   }
@@ -156,8 +161,9 @@ export default async function ReportsPage() {
           ticket work: watching SLA compliance, spotting where the
           backlog is piling up, and reporting on how the team is doing
           overall. Every number below is computed live from the same
-          Incident, Problem, Change, and Service Request data everywhere
-          else in the app, this isn&apos;t separate mock data.
+          Incident, Problem, Change, Service Request, and Knowledge Base
+          data everywhere else in the app, this isn&apos;t separate mock
+          data.
         </p>
 
         <ReportCard title="SLA performance">
@@ -246,6 +252,12 @@ export default async function ReportsPage() {
               tone={pendingApprovalRequests > 0 ? "warning" : "neutral"}
             />
             <StatBlock label="Avg. request fulfillment" value={formatHours(avgFulfillmentHours)} />
+            <StatBlock label="KB articles published" value={String(publishedArticleCount)} />
+            <StatBlock
+              label="KB drafts awaiting publish"
+              value={String(draftArticleCount)}
+              tone={draftArticleCount > 0 ? "warning" : "neutral"}
+            />
           </div>
         </ReportCard>
       </main>
